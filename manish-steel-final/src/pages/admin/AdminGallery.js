@@ -69,6 +69,15 @@ const AdminGallery = () => {
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   
+  // Structured gallery data object to avoid undefined errors
+  const galleryData = useMemo(() => {
+    return {
+      sections: sections,
+      categories: categories,
+      images: images
+    };
+  }, [sections, categories, images]);
+
   // Filter and sort states
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
@@ -1839,7 +1848,7 @@ const AdminGallery = () => {
                         <span className="ml-2 text-sm font-medium text-gray-700 flex items-center gap-1">
                           Featured image
                           {imageForm.featured && <FaStar className="text-yellow-500" />}
-                        </span>
+                                               </span>
                       </label>
                     </div>
 

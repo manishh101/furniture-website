@@ -6,6 +6,25 @@ import { scrollToTop } from '../utils/scrollUtils';
 import ImageService from '../services/imageService';
 import OptimizedImage from '../components/common/OptimizedImage';
 
+// Default placeholder images array
+const defaultImages = [
+  '/placeholders/Product.png',
+  '/placeholders/Household-Furniture.png',
+  '/placeholders/Office-Products.png',
+  '/placeholders/Beds.png'
+];
+
+// Function to get random placeholder styles to make images visually distinct
+const getPlaceholderStyle = (variant = 0) => {
+  const styles = [
+    { filter: 'none' },
+    { filter: 'brightness(1.05) contrast(1.05)' },
+    { filter: 'sepia(0.2) brightness(1.05)' },
+    { filter: 'brightness(0.95) contrast(1.1)' }
+  ];
+  return styles[variant % styles.length];
+};
+
 const ProductDetailPage = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
