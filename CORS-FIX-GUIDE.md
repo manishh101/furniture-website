@@ -1,24 +1,36 @@
 # CORS Configuration Fix Guide
 
-This guide provides step-by-step instructions for fixing CORS (Cross-Origin Resource Sharing) issues between your frontend and backend deployments.
+This guide provides step-by-step instructions for fixing CORS (Cross-Origin Resource Sharing) issues between your frontend (https://manish-steel-furniture.vercel.app) and backend (https://manish-steel-api.vercel.app) deployments.
 
-## 1. Understand the Issue
+## 1. Understanding the Issue
 
-CORS errors occur when your frontend (deployed on Vercel) tries to make requests to your backend (deployed on Render/Vercel) but the backend doesn't have the correct configuration to allow these requests from the frontend domain.
+CORS errors occur when your frontend application tries to make requests to your backend API but the backend doesn't have the correct configuration to allow these requests from the frontend domain. The browser blocks these requests for security reasons.
+
+Error message you might see in the console:
+```
+Access to fetch at 'https://manish-steel-api.vercel.app/api/health' from origin 'https://manish-steel-furniture.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+```
 
 ## 2. Update Backend Environment Variables
 
 ### If deployed on Render:
 
-1. Log into your Render dashboard
-2. Select your backend service
-3. Go to "Environment" tab
-4. Add or update this environment variable:
-   - Key: `ALLOWED_ORIGINS`
-   - Value: `https://manish-steel-furniture.vercel.app` (or your actual Vercel frontend URL)
-   - If you need multiple origins, separate them with commas (no spaces): `https://manish-steel-furniture.vercel.app,http://localhost:3000`
-5. Click "Save Changes"
-6. Your service will automatically redeploy with the new configuration
+1. **Using the helper script (recommended):**
+   - Run the helper script in this repository:
+     ```
+     ./update-render-cors.sh
+     ```
+   - Follow the prompts to set up CORS for your Render service
+
+2. **Manual method:**
+   - Log into your Render dashboard at https://dashboard.render.com
+   - Select your backend service (manish-steel-api)
+   - Go to "Environment" tab
+   - Add or update this environment variable:
+     - Key: `ALLOWED_ORIGINS`
+     - Value: `https://manish-steel-furniture.vercel.app,http://localhost:3000`
+   - Click "Save Changes"
+   - Your service will automatically redeploy with the new configuration
 
 ### If deployed on Vercel:
 

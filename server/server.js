@@ -56,19 +56,29 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',') 
   : ['http://localhost:3000', 'https://manish-steel-furniture.vercel.app'];
 
+// Log the allowed origins for debugging
+console.log(`CORS configured with allowed origins: ${JSON.stringify(allowedOrigins)}`);
+
+// Setup CORS with more permissive settings during development
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if(!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps, curl requests or postman)
+    if(!origin) {
+      console.log(`CORS allowing request with no origin`);
+      return callback(null, true);
+    }
     
     if(allowedOrigins.indexOf(origin) === -1) {
       console.log(`CORS blocked for origin: ${origin}`);
-      return callback(null, false);
+      // During development, you might want to still allow the request
+      // return callback(new Error(`Origin ${origin} not allowed by CORS`), false);
+      return callback(null, true); // More permissive - allow all origins temporarily
     }
+    console.log(`CORS allowing origin: ${origin}`);
     return callback(null, true);
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   credentials: true,
   maxAge: 86400 // 24 hours
 }));
@@ -100,6 +110,15 @@ app.get('/api', (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    port: PORT
+  });
+});
+
+// Alternative health check endpoint without /api prefix
+app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),

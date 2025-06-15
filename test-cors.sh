@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # Script to test CORS configuration of the backend API
-# Usage: ./test-cors.sh <backend-api-url>
+# Usage: ./test-cors.sh [backend-api-url]
 
-BACKEND_URL=${1:-"https://your-backend-url.vercel.app/api"}
+# Default backend URL if none provided - updated for Render deployment
+BACKEND_URL=${1:-"https://manish-steel-api.onrender.com"}
 FRONTEND_URL="https://manish-steel-furniture.vercel.app"
 
 # Define colors for output
