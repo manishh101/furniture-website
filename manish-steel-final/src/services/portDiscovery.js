@@ -26,7 +26,7 @@ const CACHE_EXPIRY = 10 * 60 * 1000;
 const discoverPort = async () => {
   // If we're in production, use the environment variable
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_BASE_URL || 'https://manish-steel-api.vercel.app/api';
+    return process.env.REACT_APP_API_URL || 'https://manish-steel-api.onrender.com/api';
   }
   
   // Check if we have a cached API URL
