@@ -1,8 +1,9 @@
 /**
- * Port Discovery Service
+ * API URL Discovery Service
  * 
- * This service attempts to discover which port the backend is running on by
- * trying common ports until it finds the correct one.
+ * This service determines the API base URL based on the environment.
+ * In production, it uses the environment variable.
+ * In development, it tries to discover the backend port.
  */
 
 import axios from 'axios';
@@ -19,7 +20,7 @@ const API_CACHE_KEY = 'manish_steel_api_url';
 const CACHE_EXPIRY = 10 * 60 * 1000;
 
 /**
- * Discover the backend port by trying common ports
+ * Get the API base URL based on environment
  * @returns {Promise<string>} API base URL
  */
 const discoverPort = async () => {
@@ -28,46 +29,27 @@ const discoverPort = async () => {
     return process.env.REACT_APP_API_BASE_URL || 'https://manish-steel-api.vercel.app/api';
   }
   
-  // Check for cached URL and its validity
-  const cachedData = localStorage.getItem(API_CACHE_KEY);
+  // Check if we have a cached API URL
+  const cachedData = getCachedApiUrl();
   if (cachedData) {
-    try {
-      const { url, timestamp } = JSON.parse(cachedData);
-      // Check if the cached URL is still valid (within expiry time)
-      if (timestamp && (Date.now() - timestamp < CACHE_EXPIRY)) {
-        console.log(`Using cached API URL: ${url}`);
-        
-        // Validate that the cached URL is still reachable
-        try {
-          await axios.get(`${url}/health`, { timeout: 1000 });
-          return url;
-        } catch (err) {
-          console.log('Cached API URL is no longer reachable, will attempt rediscovery');
-        }
-      }
-    } catch (e) {
-      console.log('Invalid cached API URL, will rediscover');
-    }
+    return cachedData.url;
   }
   
   // Fast local check for default port
   try {
-    const defaultUrl = 'http://localhost:3001/api';
+    const defaultUrl = 'http://localhost:5000/api';
     try {
       await axios.get(`${defaultUrl}/health`, { timeout: 1000 });
-      console.log(`✅ Backend discovered at default location: ${defaultUrl}`);
       cacheApiUrl(defaultUrl);
       return defaultUrl;
     } catch (err) {
       // Try regular /health endpoint
-      await axios.get(`http://localhost:3001/health`, { timeout: 1000 });
-      console.log(`✅ Backend discovered at default location: ${defaultUrl}`);
+      await axios.get(`http://localhost:5000/health`, { timeout: 1000 });
       cacheApiUrl(defaultUrl);
       return defaultUrl;
     }
   } catch (err) {
     // Continue with port discovery if default port is not working
-    console.log('Default port check failed, trying alternative ports');
   }
   
   // If the fast check fails, try a limited set of common ports
@@ -76,7 +58,6 @@ const discoverPort = async () => {
       const apiBaseUrl = `http://${host}:${port}/api`;
       
       try {
-        console.log(`Attempting to connect to backend at: ${apiBaseUrl}/health`);
         try {
           await axios.get(`${apiBaseUrl}/health`, { timeout: 1000 });
         } catch (innerErr) {
@@ -84,7 +65,6 @@ const discoverPort = async () => {
           await axios.get(`http://${host}:${port}/health`, { timeout: 1000 });
         }
         
-        console.log(`✅ Backend discovered at ${apiBaseUrl}`);
         cacheApiUrl(apiBaseUrl);
         return apiBaseUrl;
       } catch (error) {
@@ -94,19 +74,40 @@ const discoverPort = async () => {
   }
   
   // Fall back to the default URL if discovery fails
-  console.log('Falling back to default API URL: http://localhost:3001/api');
-  return 'http://localhost:3001/api';
+  return 'http://localhost:5000/api';
 };
 
 /**
- * Cache the discovered API URL with a timestamp
- * @param {string} url - The API base URL to cache
+ * Get cached API URL if it exists and is not expired
+ * @returns {Object|null} Cached data or null if not found/expired
+ */
+const getCachedApiUrl = () => {
+  try {
+    const cachedData = JSON.parse(localStorage.getItem(API_CACHE_KEY));
+    
+    if (cachedData && cachedData.timestamp > Date.now() - CACHE_EXPIRY) {
+      return cachedData;
+    }
+  } catch (err) {
+    // Invalid cache data
+  }
+  
+  return null;
+};
+
+/**
+ * Cache the discovered API URL
+ * @param {string} url API base URL
  */
 const cacheApiUrl = (url) => {
-  localStorage.setItem(API_CACHE_KEY, JSON.stringify({
-    url,
-    timestamp: Date.now()
-  }));
+  try {
+    localStorage.setItem(API_CACHE_KEY, JSON.stringify({
+      url,
+      timestamp: Date.now()
+    }));
+  } catch (err) {
+    // Error caching - not critical
+  }
 };
 
 export default { discoverPort };

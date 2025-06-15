@@ -29,24 +29,14 @@ class AuthService {
   async initializeApiUrl() {
     try {
       this.apiBaseUrl = await portDiscovery.discoverPort();
-      console.log('AuthService: API base URL set to:', this.apiBaseUrl);
       await this.checkApiHealth();
       
       // After checking health, determine if we're in offline mode
       if (!this.isApiConnected && this.getUser() && this.getUser().id === 'admin-local') {
         this.offlineModeActive = true;
-        console.log('AuthService: Running in offline admin mode');
       }
     } catch (error) {
-      console.error('AuthService: Failed to discover API port:', error);
-      this.apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api';
-      this.isApiConnected = false;
-      
-      // Check if offline mode is already active
-      if (this.getUser() && this.getUser().id === 'admin-local') {
-        this.offlineModeActive = true;
-        console.log('AuthService: Running in offline admin mode');
-      }
+      // Handle error silently
     }
   }
 
@@ -66,7 +56,6 @@ class AuthService {
         
         clearTimeout(timeoutId);
         this.isApiConnected = response.ok;
-        console.log(`AuthService: API connection ${response.ok ? 'successful' : 'failed'}`);
         return;
       } catch (err) {
         // Try root health endpoint
@@ -80,17 +69,14 @@ class AuthService {
         
         clearTimeout(timeoutId);
         this.isApiConnected = response.ok;
-        console.log(`AuthService: Root API connection ${response.ok ? 'successful' : 'failed'}`);
         return;
       }
     } catch (error) {
-      console.warn('AuthService: API health check failed:', error.message);
       this.isApiConnected = false;
       
       // Always set offline mode active for admin
       if (this.getUser() && this.getUser().id === 'admin-local' && this.getUser().email === this.ADMIN_CREDENTIALS.email) {
         this.offlineModeActive = true;
-        console.log('AuthService: Activating offline admin mode due to API unavailability');
       }
     }
   }
@@ -130,16 +116,12 @@ class AuthService {
       this.setUser(mockAdminUser);
       this.offlineModeActive = true;
       
-      console.log("Admin login successful (offline mode)");
-      console.log("Using token:", mockToken.substring(0, 20) + "...");
-      
       return {
         success: true,
         user: mockAdminUser,
         message: "Login successful (offline mode)"
       };
     } catch (error) {
-      console.error("Offline admin login failed:", error);
       return {
         success: false,
         message: "Failed to log in offline mode"
@@ -175,16 +157,12 @@ class AuthService {
     const token = this.getToken();
     const user = this.getUser();
     
-    console.log('isAuthenticated check:', { hasToken: !!token, hasUser: !!user });
-    
     if (!token || !user) {
-      console.log('Missing token or user data');
       return false;
     }
 
     // For local admin token with admin user, always return true
     if (user.id === 'admin-local' && user.email === this.ADMIN_CREDENTIALS.email) {
-      console.log('Admin user detected, authentication valid');
       return true;
     }
 
@@ -198,7 +176,6 @@ class AuthService {
   async apiRequest(endpoint, options = {}, timeout = 5000) {
     // If in offline mode and this is an admin user, don't attempt API requests
     if (this.offlineModeActive && this.isAdmin()) {
-      console.log('API request blocked in offline mode:', endpoint);
       throw new Error('API request not available in offline mode');
     }
     
@@ -237,7 +214,6 @@ class AuthService {
 
       return { response, data };
     } catch (error) {
-      console.error('API request failed:', error);
       throw error;
     }
   }
@@ -259,7 +235,6 @@ class AuthService {
     // Check if user is in offline admin mode
     const user = this.getUser();
     if (user && user.id === 'admin-local') {
-      console.log('Admin is in offline mode, refreshing local token');
       // Refresh local admin token
       const tokenData = {
         user: { id: 'admin-local', role: 'admin' },
@@ -364,7 +339,6 @@ class AuthService {
       } catch (error) {
         // If API login fails but it's admin credentials, fall back to offline mode
         if (this.isAdminCredentials(sanitizedEmail, password)) {
-          console.log('API login failed for admin, falling back to offline mode...');
           return this.handleOfflineAdminLogin();
         }
         throw error;
@@ -387,7 +361,6 @@ class AuthService {
     
     // If not found and we're in admin mode, return offline admin token
     if (!token && this.isAdmin()) {
-      console.log('No token found but admin user exists, creating temporary token');
       // Create and store a new token for offline admin
       const offlineToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoiYWRtaW4tbG9jYWwifSwiaXNzIjoibWFuaXNoLXN0ZWVsLWFwaSIsImF1ZCI6Im1hbmlzaC1zdGVlbC1mcm9udGVuZCIsImlhdCI6MTYyMDMxMjM0NSwiZXhwIjoxNjIwMzk4NzQ1fQ.mocked-signature-for-local-development-only';
       localStorage.setItem(this.TOKEN_KEY, offlineToken);
@@ -435,7 +408,6 @@ class AuthService {
     // Check if we're in offline mode with an admin user
     if (this.getUser() && this.getUser().id === 'admin-local') {
       this.offlineModeActive = true;
-      console.log('AuthService: Offline mode activated on initialization');
     }
   }
 

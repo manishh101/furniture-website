@@ -7,7 +7,7 @@
       "config": { 
         "distDir": "build",
         "installCommand": "npm install --legacy-peer-deps",
-        "buildCommand": "./vercel-build-override.sh",
+        "buildCommand": "CI=false DISABLE_ESLINT_PLUGIN=true npm run build",
         "devCommand": "CI=false npm start"
       }
     }

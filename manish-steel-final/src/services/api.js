@@ -7,7 +7,7 @@ import { defaultProducts } from '../utils/productData';
 // Create an initial Axios instance with the correct baseURL
 // This will be updated after port discovery but we're starting with port 5000
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Updated to match current backend port
+  baseURL: 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -19,109 +19,66 @@ let isApiConnected = false;
 // Discover the API port and update the baseURL
 (async () => {
   try {
-    // Use port 5000 directly (matching our backend server) 
-    const discoveredBaseUrl = 'http://localhost:5000/api';
-    console.log(`API base URL set to: ${discoveredBaseUrl}`);
+    const discoveredBaseUrl = await portDiscovery.discoverPort();
     api.defaults.baseURL = discoveredBaseUrl;
     
     // Test the connection
     try {
-      console.log('Testing API connection at:', discoveredBaseUrl);
       const healthResponse = await axios.get(`${discoveredBaseUrl}/health`, { timeout: 5000 });
-      if (healthResponse && healthResponse.data && healthResponse.data.status === 'healthy') {
+      if (healthResponse.status === 200) {
         isApiConnected = true;
-        console.log('✅ API connection successful:', healthResponse.data);
-      } else {
-        console.warn('API health check returned unexpected data:', healthResponse.data);
-        isApiConnected = false;
       }
-    } catch (error) {
-      console.warn('API health check failed, will use fallback data:', error.message);
+    } catch (healthError) {
+      // Health check failed, API may be unreachable
       isApiConnected = false;
     }
   } catch (error) {
-    console.error('Failed to set API port:', error);
-    // Fall back to environment variable or default
-    api.defaults.baseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+    // Use default baseURL if port discovery fails
     isApiConnected = false;
   }
 })();
 
-// Helper function to check API connectivity
-const checkApiConnection = async (retries = 1) => {
-  try {
-    console.log(`Checking API connection (attempt ${retries})...`);
-    const healthResponse = await axios.get(`${api.defaults.baseURL}/health`, { timeout: 3000 });
-    if (healthResponse && healthResponse.data && healthResponse.data.status === 'healthy') {
-      console.log('✅ API connection verified:', healthResponse.data);
-      isApiConnected = true;
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.warn(`❌ API connection check failed (attempt ${retries}):`, error.message);
-    isApiConnected = false;
-    return false;
-  }
-};
-
-// Add authentication token to requests
+// Request interceptor to add authorization token
 api.interceptors.request.use(
-  async config => {
+  (config) => {
     const token = authService.getToken();
-    
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
-    
-    // If we're about to make an API call but connectivity is false, try to reconnect
-    if (!isApiConnected && !config.url.includes('/health')) {
-      await checkApiConnection();
-    }
-    
     return config;
   },
-  error => {
+  (error) => {
     return Promise.reject(error);
   }
 );
 
-// Add response interceptor to handle auth errors
+// Response interceptor to handle token expiration
 api.interceptors.response.use(
-  response => response,
-  async error => {
+  (response) => {
+    return response;
+  },
+  async (error) => {
     const originalRequest = error.config;
     
-    // Check if the request has the _preventRetry flag
-    const isPreventRetry = originalRequest._preventRetry;
-    
-    // If unauthorized and we haven't already tried to refresh and not prevented
-    if (error.response?.status === 401 && !originalRequest._retry && !isPreventRetry) {
+    // If error is 401 and we haven't tried to refresh the token yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-
+      
       try {
-        // Try to refresh token
-        const refreshResult = await authService.refreshToken();
+        // Try to refresh the token
+        const refreshed = await authService.refreshToken();
         
-        if (refreshResult.success) {
-          // Retry the original request with new token
-          const token = authService.getToken();
-          if (token) {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return api(originalRequest);
-          }
+        if (refreshed) {
+          // Update the token in the request and retry
+          originalRequest.headers['Authorization'] = `Bearer ${authService.getToken()}`;
+          return axios(originalRequest);
         }
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
-      }
-
-      // Don't log out if the request was marked with _preventRetry
-      if (!isPreventRetry) {
+        // If refresh failed, logout the user
         authService.logout();
-        window.location.href = '/login';
       }
     }
-
+    
     return Promise.reject(error);
   }
 );
@@ -351,7 +308,6 @@ export const categoryAPI = {
     try {
       // If API is not connected, try to reconnect once
       if (!isApiConnected) {
-        console.log('API appears disconnected. Attempting to reconnect...');
         const reconnected = await checkApiConnection(2);
         if (!reconnected) {
           throw new Error('API connection failed after retry');
@@ -359,7 +315,6 @@ export const categoryAPI = {
       }
       
       const response = await api.get('/categories', { params: { detailed } });
-      console.log('Categories API response:', response.data);
       return response;
     } catch (error) {
       console.warn('Using fallback category data:', error.message);
@@ -695,7 +650,33 @@ export const aboutAPI = {
   }
 };
 
-// Export the API connection checker utility
-export { checkApiConnection };
+/**
+ * Check API connection and try to reconnect if needed
+ * @param {number} retryCount - Number of connection attempts to make
+ * @returns {Promise<boolean>} - Whether connection was successful
+ */
+const checkApiConnection = async (retryCount = 1) => {
+  for (let i = 0; i < retryCount; i++) {
+    try {
+      const baseUrl = await portDiscovery.discoverPort();
+      const healthResponse = await axios.get(`${baseUrl}/health`, { timeout: 3000 });
+      
+      if (healthResponse.status === 200) {
+        isApiConnected = true;
+        return true;
+      }
+    } catch (error) {
+      console.warn(`API connection attempt ${i + 1} failed`);
+    }
+    
+    // Wait a bit before retrying
+    if (i < retryCount - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  
+  return false;
+};
 
+// Export the API axios instance as default for backward compatibility
 export default api;

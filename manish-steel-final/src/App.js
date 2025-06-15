@@ -24,6 +24,7 @@ import AdminContact from './pages/admin/AdminContact';
 import AdminInquiries from './pages/admin/AdminInquiries';
 import AdminAbout from './pages/admin/AdminAbout';
 import AdminCustomOrders from './pages/admin/AdminCustomOrders';
+
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/custom-order" element={<CustomOrderPage />} />
             <Route path="/login" element={<LoginPage />} />
+
             
             {/* Protected Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute />}>
@@ -63,6 +65,7 @@ function App() {
             </Route>
             
             <Route path="*" element={<NotFoundPage />} />
+
           </Routes>
       </LayoutWrapper>
       <ToastContainer
