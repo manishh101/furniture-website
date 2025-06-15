@@ -72,9 +72,9 @@ const AdminGallery = () => {
   // Structured gallery data object to avoid undefined errors
   const galleryData = useMemo(() => {
     return {
-      sections: sections,
-      categories: categories,
-      images: images
+      sections: sections || [],
+      categories: categories || [],
+      images: images || []
     };
   }, [sections, categories, images]);
 

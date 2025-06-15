@@ -204,3 +204,56 @@ This project is proprietary and confidential. Unauthorized copying, distribution
 ## Contact
 
 Manish Steel Furniture - [Website](https://manishsteel.vercel.app)
+
+## Deployment
+
+### Using Vercel (Recommended)
+
+This project is configured for deployment on Vercel with separate deployments for frontend and backend.
+
+#### Prerequisites for Deployment
+
+- A Vercel account
+- MongoDB Atlas database (or other MongoDB hosting)
+- Cloudinary account for image optimization (optional)
+
+#### Frontend Deployment
+
+1. Log in to your Vercel account
+2. Create a new project by importing from GitHub or uploading the `manish-steel-final/build` directory
+3. Configure the following environment variables:
+   - `REACT_APP_API_URL`: Your backend API URL (e.g., https://manish-steel-api.vercel.app/api)
+   - `REACT_APP_FRONTEND_URL`: Your frontend URL (e.g., https://manish-steel-furniture.vercel.app)
+   - `REACT_APP_CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name (if using Cloudinary)
+   - `REACT_APP_CLOUDINARY_API_KEY`: Your Cloudinary API key (if using Cloudinary)
+4. Deploy the project
+
+#### Backend Deployment
+
+1. In Vercel, create another project for the server directory
+2. Configure the following environment variables:
+   - `NODE_ENV`: Set to `production`
+   - `MONGO_URI`: Your MongoDB connection string
+   - `JWT_SECRET`: A secure random string for JWT token generation
+   - `CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name
+   - `CLOUDINARY_API_KEY`: Your Cloudinary API key
+   - `CLOUDINARY_API_SECRET`: Your Cloudinary API secret
+   - `FRONTEND_URL`: Your frontend URL (e.g., https://manish-steel-furniture.vercel.app)
+3. Deploy the project
+
+#### Verifying Your Deployment
+
+After deployment:
+1. Visit your frontend URL to confirm the site is loading correctly
+2. Test authentication functionality
+3. Test API connections by navigating through products, galleries, etc.
+4. Verify image uploads and Cloudinary integration
+
+#### Custom Domain Setup (Optional)
+
+1. Purchase or configure a domain for your website
+2. In Vercel's dashboard, go to 'Settings' > 'Domains'
+3. Add your custom domain and follow the DNS configuration instructions
+4. Update environment variables if needed to match your new domain names
+
+For more detailed instructions, see the `deployment-guide.sh` file in the project root.
