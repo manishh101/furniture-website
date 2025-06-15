@@ -1,6 +1,6 @@
 # CORS Configuration Fix Guide
 
-This guide provides step-by-step instructions for fixing CORS (Cross-Origin Resource Sharing) issues between your frontend (https://manish-steel-furniture.vercel.app) and backend (https://manish-steel-api.vercel.app) deployments.
+This guide provides step-by-step instructions for fixing CORS (Cross-Origin Resource Sharing) issues between your frontend (https://manish-steel-furniture-m9ayaff4c-manishh101s-projects.vercel.app) and backend (https://manish-steel-api.vercel.app) deployments.
 
 ## 1. Understanding the Issue
 
@@ -8,7 +8,7 @@ CORS errors occur when your frontend application tries to make requests to your 
 
 Error message you might see in the console:
 ```
-Access to fetch at 'https://manish-steel-api.vercel.app/api/health' from origin 'https://manish-steel-furniture.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+Access to fetch at 'https://manish-steel-api.vercel.app/api/health' from origin 'https://manish-steel-furniture-m9ayaff4c-manishh101s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ```
 
 ## 2. Update Backend Environment Variables
@@ -28,21 +28,28 @@ Access to fetch at 'https://manish-steel-api.vercel.app/api/health' from origin 
    - Go to "Environment" tab
    - Add or update this environment variable:
      - Key: `ALLOWED_ORIGINS`
-     - Value: `https://manish-steel-furniture.vercel.app,http://localhost:3000`
+     - Value: `https://manish-steel-furniture.vercel.app,https://manish-steel-furniture-m9ayaff4c-manishh101s-projects.vercel.app,https://manish-steel-furniture-git-main-manishh101s-projects.vercel.app,http://localhost:3000`
    - Click "Save Changes"
    - Your service will automatically redeploy with the new configuration
 
 ### If deployed on Vercel:
 
-1. Log into your Vercel dashboard
-2. Select your backend project
-3. Go to "Settings" > "Environment Variables"
-4. Add or update this environment variable:
-   - Key: `ALLOWED_ORIGINS`
-   - Value: `https://manish-steel-furniture.vercel.app` (or your actual Vercel frontend URL)
-   - If you need multiple origins, separate them with commas (no spaces): `https://manish-steel-furniture.vercel.app,http://localhost:3000`
-5. Click "Save"
-6. Redeploy your backend by going to "Deployments" and clicking "Redeploy"
+1. **Using the helper script (recommended):**
+   - Run the helper script in this repository:
+     ```
+     ./deploy-cors-fix-vercel.sh
+     ```
+   - This will deploy your backend with the correct CORS configuration
+
+2. **Manual method:**
+   - Log into your Vercel dashboard
+   - Select your backend project
+   - Go to "Settings" > "Environment Variables"
+   - Add or update this environment variable:
+     - Key: `ALLOWED_ORIGINS`
+     - Value: `https://manish-steel-furniture.vercel.app,https://manish-steel-furniture-m9ayaff4c-manishh101s-projects.vercel.app,https://manish-steel-furniture-git-main-manishh101s-projects.vercel.app,http://localhost:3000`
+   - Click "Save"
+   - Redeploy your backend by going to "Deployments" and clicking "Redeploy"
 
 ## 3. Verify the Fix
 

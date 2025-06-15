@@ -15,9 +15,10 @@
     {
       "src": "/(.*)",
       "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept"
+        "Access-Control-Allow-Origin": "https://manish-steel-furniture-m9ayaff4c-manishh101s-projects.vercel.app, https://manish-steel-furniture.vercel.app, https://manish-steel-furniture-git-main-manishh101s-projects.vercel.app",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, X-Requested-With",
+        "Access-Control-Allow-Credentials": "true"
       },
       "dest": "/index.js"
     }

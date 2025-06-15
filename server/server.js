@@ -54,7 +54,11 @@ app.use((req, res, next) => {
 // Configure CORS to allow requests from frontend
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:3000', 'https://manish-steel-furniture.vercel.app'];
+  : ['http://localhost:3000', 
+     'https://manish-steel-furniture.vercel.app', 
+     'https://manish-steel-furniture-m9ayaff4c-manishh101s-projects.vercel.app',
+     'https://manish-steel-furniture-git-main-manishh101s-projects.vercel.app',
+     'https://manish-steel-furniture.onrender.com'];
 
 // Log the allowed origins for debugging
 console.log(`CORS configured with allowed origins: ${JSON.stringify(allowedOrigins)}`);
