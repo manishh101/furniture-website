@@ -4,10 +4,18 @@ import portDiscovery from './portDiscovery';
 import { getCategories as getLocalCategories } from '../utils/categoryData';
 import { defaultProducts } from '../utils/productData';
 
-// Create an initial Axios instance with the correct baseURL
-// This will be updated after port discovery but we're starting with port 5000
+// Create an initial Axios instance with the correct baseURL based on environment
+const getInitialBaseUrl = () => {
+  // In production, use the environment variable
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.REACT_APP_API_URL || 'https://manish-steel-api.onrender.com/api';
+  }
+  // In development, start with localhost
+  return 'http://localhost:5000/api';
+};
+
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: getInitialBaseUrl(),
   headers: {
     'Content-Type': 'application/json'
   }

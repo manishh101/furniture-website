@@ -1,38 +1,194 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FaStar, FaArrowRight, FaHeart, FaEye } from 'react-icons/fa';
 import { productAPI } from '../services/productService';
 import { PlaceholderImage } from '../utils/placeholders';
 import OptimizedImage from './common/OptimizedImage';
 import ImageService from '../services/imageService';
+import mobileDebugger from '../utils/mobileDebugger';
 
+// Error boundary to prevent entire component from failing
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("TopProductsSection failed to render:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI
+      return (
+        <section className="py-16 bg-gradient-to-br from-gray-50 to-white">
+          <div className="container mx-auto px-4">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-primary mb-4">Our Top Products</h2>
+              <p>Loading products...</p>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Wrap the entire component with error boundary in Home Page
+const WrappedTopProductsSection = () => {
+  return (
+    <ErrorBoundary>
+      <TopProductsSection />
+    </ErrorBoundary>
+  );
+};
+
+// Main component implementation
 const TopProductsSection = () => {
   const [topProducts, setTopProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const sectionRef = useRef(null); // Add ref for intersection observer
 
   useEffect(() => {
-    fetchTopProducts();
+    // Log device info for debugging
+    mobileDebugger.mobileLog('TopProductsSection mounted', {
+      isMobile: mobileDebugger.isMobileDevice(),
+      network: mobileDebugger.checkMobileNetwork()
+    });
+    
+    // Only fetch data when the section is visible or about to become visible
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          mobileDebugger.mobileLog('TopProductsSection visible, fetching data');
+          fetchTopProducts();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+    };
   }, []);
 
   const fetchTopProducts = async () => {
     try {
       setLoading(true);
-      // Direct fetch call to ensure it works
-      const response = await fetch('http://localhost:5000/api/products/featured?limit=6');
+      console.log('Fetching top products...');
+      
+      // Use the proper API client with environment awareness
+      try {
+        // First try using the proper productAPI service
+        const data = await productAPI.getTopProducts(6);
+        console.log('Top products API response:', data);
+        
+        if (data && data.products) {
+          setTopProducts(data.products);
+          return;
+        }
+      } catch (serviceError) {
+        console.warn('Failed to fetch using productAPI service, trying direct fetch:', serviceError);
+      }
+      
+      // Proper environment detection and URL construction
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 
+                        ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+                         ? 'http://localhost:5000/api' 
+                         : 'https://manish-steel-api.onrender.com/api');
+      
+      console.log('Using API base URL for top products:', apiBaseUrl);
+      const response = await fetch(`${apiBaseUrl}/products/featured?limit=6`);
+      
+      if (!response.ok) {
+        throw new Error(`API response error: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data.success && data.products) {
         setTopProducts(data.products);
+      } else if (data.products) {
+        // Some APIs just return the products array directly
+        setTopProducts(data.products);
       } else {
+        console.warn('No products in API response:', data);
         setError('No featured products found');
+        // Use fallback data in production
+        if (process.env.NODE_ENV === 'production') {
+          setTopProducts(getFallbackProducts());
+          setError(null);
+        }
       }
     } catch (error) {
-      console.error('Error fetching top products:', error);
+      mobileDebugger.mobileError('Error fetching top products:', error);
       setError('Failed to load top products');
+      
+      // In production, use fallback data instead of showing error
+      if (process.env.NODE_ENV === 'production') {
+        setTopProducts(getFallbackProducts());
+        setError(null);
+      }
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Fallback products data for production
+  const getFallbackProducts = () => {
+    return [
+      {
+        _id: 'fallback1',
+        name: 'Premium Office Chair',
+        description: 'Ergonomic design with lumbar support for maximum comfort',
+        price: 12000,
+        rating: 4.8,
+        image: '/placeholders/Office-Chairs.png',
+        category: 'Office Furniture'
+      },
+      {
+        _id: 'fallback2',
+        name: 'Steel Wardrobe',
+        description: 'Spacious wardrobe with multiple compartments',
+        price: 18500,
+        rating: 4.7,
+        image: '/placeholders/Almirahs-Wardrobes.png',
+        category: 'Household Furniture'
+      },
+      {
+        _id: 'fallback3',
+        name: 'Office Table',
+        description: 'Durable steel office table with modern design',
+        price: 9500,
+        rating: 4.6,
+        image: '/placeholders/Office-Desks.png',
+        category: 'Office Furniture'
+      },
+      {
+        _id: 'fallback4',
+        name: 'Single Bed',
+        description: 'Comfortable single bed with steel frame',
+        price: 8000,
+        rating: 4.5,
+        image: '/placeholders/Beds.png',
+        category: 'Beds'
+      }
+    ];
   };
 
   const handleProductView = (productId) => {
@@ -99,7 +255,7 @@ const TopProductsSection = () => {
   }
 
   return (
-    <section className="py-16 bg-gradient-to-br from-gray-50 to-white">
+    <section ref={sectionRef} className="py-16 bg-gradient-to-br from-gray-50 to-white">
       <div className="container mx-auto px-4">
         {/* Section Header */}
         <div className="text-center mb-12 animate-fadeIn">
@@ -207,4 +363,5 @@ const TopProductsSection = () => {
   );
 };
 
-export default TopProductsSection;
+// Export the wrapped version
+export default WrappedTopProductsSection;

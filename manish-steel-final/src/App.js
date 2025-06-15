@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import LayoutWrapper from './components/LayoutWrapper';
@@ -25,11 +25,25 @@ import AdminContact from './pages/admin/AdminContact';
 import AdminInquiries from './pages/admin/AdminInquiries';
 import AdminAbout from './pages/admin/AdminAbout';
 import AdminCustomOrders from './pages/admin/AdminCustomOrders';
+import MobileDiagnostics from './components/MobileDiagnostics';
+import diagnosticsEnabler from './utils/diagnosticsEnabler';
 
 import ErrorBoundary from './components/ErrorBoundary';
 
+// Main App component
 function App() {
   const [apiStatus, setApiStatus] = useState('checking');
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  // Check if diagnostics mode is enabled
+  useEffect(() => {
+    const isDiagnosticsMode = diagnosticsEnabler.isDiagnosticsEnabled();
+    setShowDiagnostics(isDiagnosticsMode);
+    
+    if (isDiagnosticsMode) {
+      diagnosticsEnabler.showDiagnosticsNotice();
+    }
+  }, []);
 
   return (
     <Router>
@@ -72,6 +86,9 @@ function App() {
 
           </Routes>
       </LayoutWrapper>
+      {/* Mobile diagnostics panel - only shown when ?debug=true is in the URL */}
+      <MobileDiagnostics show={showDiagnostics} />
+      
       <ToastContainer
         position="top-right"
         autoClose={5000}
@@ -84,6 +101,7 @@ function App() {
         pauseOnHover
         theme="light"
       />
+      {showDiagnostics && <MobileDiagnostics />}
     </Router>
   );
 }

@@ -1,6 +1,6 @@
 # CORS Configuration Fix Guide
 
-This guide provides step-by-step instructions for fixing CORS (Cross-Origin Resource Sharing) issues between your frontend (https://manish-steel-furniture-m9ayaff4c-manishh101s-projects.vercel.app) and backend (https://manish-steel-api.vercel.app) deployments.
+This guide provides step-by-step instructions for fixing CORS (Cross-Origin Resource Sharing) issues between your frontend (https://manish-steel-furniture.vercel.app) and backend (https://manish-steel-api.onrender.com) deployments.
 
 ## 1. Understanding the Issue
 
@@ -8,8 +8,12 @@ CORS errors occur when your frontend application tries to make requests to your 
 
 Error message you might see in the console:
 ```
-Access to fetch at 'https://manish-steel-api.vercel.app/api/health' from origin 'https://manish-steel-furniture-m9ayaff4c-manishh101s-projects.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+Access to fetch at 'https://manish-steel-api.vercel.app/api/health' from origin 'https://manish-steel-furniture.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ```
+
+## 1.1. Incorrect API URL
+
+One major issue we've identified is that your frontend is trying to access an API at `https://manish-steel-api.vercel.app`, but your actual backend is hosted at `https://manish-steel-api.onrender.com`. This mismatch is causing the CORS errors.
 
 ## 2. Update Backend Environment Variables
 
@@ -51,9 +55,30 @@ Access to fetch at 'https://manish-steel-api.vercel.app/api/health' from origin 
    - Click "Save"
    - Redeploy your backend by going to "Deployments" and clicking "Redeploy"
 
-## 3. Verify the Fix
+## 3. Update Frontend API URL Configuration
 
-1. Wait for the backend to redeploy completely (this may take a few minutes)
+Your frontend is currently trying to connect to the wrong backend URL. You need to update the environment variables in your Vercel deployment:
+
+1. **Using the helper script (recommended):**
+   - Run the helper script in this repository:
+     ```
+     ./update-frontend-env.sh
+     ```
+   - This will update your environment variables in Vercel and redeploy your frontend
+
+2. **Manual method:**
+   - Update the API URL in your frontend project's environment files:
+     - Edit `.env` and `.env.production` files
+     - Change `REACT_APP_API_URL` to `https://manish-steel-api.onrender.com/api`
+   - Login to your Vercel dashboard
+   - Go to your frontend project settings
+   - Navigate to "Environment Variables"
+   - Update the `REACT_APP_API_URL` variable to `https://manish-steel-api.onrender.com/api`
+   - Redeploy your frontend
+
+## 4. Verify the Fix
+
+1. Wait for the frontend and backend to redeploy completely (this may take a few minutes)
 2. Visit your frontend website
 3. Open browser developer tools (F12 or Right-click > Inspect)
 4. Go to the "Console" tab

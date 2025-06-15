@@ -5,16 +5,12 @@ import { productAPI } from '../services/api';
 import { scrollToTop } from '../utils/scrollUtils';
 import ImageService from '../services/imageService';
 import OptimizedImage from '../components/common/OptimizedImage';
+import { defaultProductImages } from '../utils/productPlaceholders';
 
-// Default placeholder images array
-const defaultImages = [
-  '/placeholders/Product.png',
-  '/placeholders/Household-Furniture.png',
-  '/placeholders/Office-Products.png',
-  '/placeholders/Beds.png'
-];
+// Only used as last-resort fallbacks when database images are not available
+const defaultImages = defaultProductImages;
 
-// Function to get random placeholder styles to make images visually distinct
+// Visual enhancement for placeholder images only - not used for actual product images from database
 const getPlaceholderStyle = (variant = 0) => {
   const styles = [
     { filter: 'none' },
@@ -39,40 +35,63 @@ const ProductDetailPage = () => {
   const [fullScreenView, setFullScreenView] = useState(false);
   const imageContainerRef = useRef(null);
 
-  // Get all available images with optimization
+  // Get all available images with priority on database Cloudinary URLs
+  // Enhanced to ensure we can handle exactly 4 images from the database
   const allImages = useMemo(() => {
     let images = [];
     
-    // Get product images
+    // PRIORITY 1: Product images array from database (typically Cloudinary URLs)
+    // The database has 4 images per product
     if (product?.images?.length > 0) {
-      images = product.images
+      // Process all available images from the database
+      const validImages = product.images
         .filter(img => img && typeof img === 'string')
         .map(img => ImageService.getOptimizedImageUrl(img, {
           category: product.category,
           width: 800,
           height: 800
         }));
+      
+      if (validImages.length > 0) {
+        images = [...validImages];
+        console.log(`Using ${validImages.length} database product images`);
+      }
     }
     
-    // Add main image if not already included
+    // PRIORITY 2: Main product image if not already included in the images array
     if (product?.image && typeof product.image === 'string') {
       const optimizedMainImage = ImageService.getOptimizedImageUrl(product.image, {
         category: product.category,
         width: 800,
         height: 800
       });
-      if (!images.includes(optimizedMainImage)) {
+      
+      // Check if this image is already in the array
+      const isDuplicate = images.some(img => {
+        // Simple URL comparison might not catch Cloudinary transformations
+        // So we normalize URLs for comparison
+        const normalizedImg = img.split('?')[0]; // Remove query parameters
+        const normalizedMain = optimizedMainImage.split('?')[0];
+        return normalizedImg === normalizedMain;
+      });
+      
+      if (!isDuplicate) {
         images.unshift(optimizedMainImage);
+        console.log('Added main product image (not a duplicate)');
       }
     }
     
-    // Ensure we have at least 4 images for consistent UI
-    const placeholder = ImageService.getPlaceholderImage(product?.category);
-    while (images.length < 4) {
+    // Only use placeholders if absolutely needed
+    if (images.length === 0) {
+      console.warn('No database images available for product, using placeholder');
+      const placeholder = ImageService.getPlaceholderImage(product?.category);
       images.push(placeholder);
     }
     
-    return images.slice(0, 4);
+    // Log the final count of images being used
+    console.log(`Total product images available: ${images.length}`);
+    
+    return images;
   }, [product]);
   
   // Debug: Log image loading issues
@@ -86,24 +105,58 @@ const ProductDetailPage = () => {
   }, [allImages, product?.id]);
   
   // Preload all images when component mounts for smoother experience
+  // Enhanced to handle Cloudinary URLs more effectively
   useEffect(() => {
     const preloadImages = async () => {
+      if (!allImages || allImages.length === 0) {
+        console.warn('No images to preload');
+        return;
+      }
+      
       try {
-        const imagePromises = allImages.slice(0, 4).map(src => {
-          return new Promise((resolve, reject) => {
+        console.log('Preloading product images:', allImages.length);
+        
+        // Track successfully loaded vs failed images
+        const loadStats = { success: 0, failed: 0, total: allImages.length };
+        
+        const imagePromises = allImages.map(src => {
+          return new Promise((resolve) => {
+            if (!src) {
+              loadStats.failed++;
+              resolve(null);
+              return;
+            }
+            
+            // Log if this is a Cloudinary URL or placeholder
+            const isCloudinary = ImageService.isCloudinaryUrl(src);
+            const isPlaceholder = ImageService.isPlaceholder(src);
+            
+            console.log(`Preloading: ${isCloudinary ? 'Cloudinary' : isPlaceholder ? 'Placeholder' : 'Other'} image: ${src}`);
+            
             const img = new Image();
-            img.onload = () => resolve(src);
-            img.onerror = () => {
-              console.warn(`Failed to load image: ${src}`);
-              // Try loading the first default image instead
-              img.src = defaultImages[0];
+            
+            img.onload = () => {
+              loadStats.success++;
+              resolve(src);
             };
+            
+            img.onerror = () => {
+              loadStats.failed++;
+              console.warn(`Failed to load image: ${src}`);
+              // Only try a placeholder if we're not already loading a placeholder
+              if (!isPlaceholder && defaultImages.length > 0) {
+                console.log('Using fallback placeholder instead');
+                img.src = defaultImages[0];
+              }
+              resolve(null); // Still resolve to continue the process
+            };
+            
             img.src = src;
           });
         });
 
         await Promise.all(imagePromises);
-        console.log('All thumbnail images preloaded successfully');
+        console.log(`Image preloading complete: ${loadStats.success}/${loadStats.total} loaded successfully`);
       } catch (error) {
         console.error('Error preloading images:', error);
       }
@@ -264,15 +317,57 @@ const ProductDetailPage = () => {
     setTouchPosition(null);
   };
 
-  // Fetch product from API
+  // Fetch product from API with improved image handling
+  // Enhanced to validate we're correctly handling 4 images per product
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true);
+        console.log(`Fetching product with ID: ${productId}`);
         const response = await productAPI.getById(productId);
-        setProduct(response.data);
+        
+        // Get product data and analyze the images
+        const product = response.data;
+        const mainImage = product.image;
+        const additionalImages = product.images || [];
+        
+        // Check if we have Cloudinary URLs
+        const mainImageIsCloudinary = mainImage ? ImageService.isCloudinaryUrl(mainImage) : false;
+        const cloudinaryImageCount = additionalImages.filter(img => ImageService.isCloudinaryUrl(img)).length;
+        
+        // Log detailed image information 
+        console.log('Product loaded:', { 
+          name: product.name,
+          id: product._id,
+          hasMainImage: !!mainImage,
+          additionalImageCount: additionalImages.length,
+          cloudinaryImageCount,
+          expectedImageCount: 4, // The database has 4 images per product
+          mainImageIsCloudinary,
+          imageTypes: {
+            cloudinary: cloudinaryImageCount,
+            other: additionalImages.length - cloudinaryImageCount
+          }
+        });
+        
+        // Log the actual image URLs (abbreviated)
+        console.log('Image URLs:', [
+          mainImage ? `Main: ${mainImage.substring(0, 50)}${mainImage.length > 50 ? '...' : ''}` : 'No main image',
+          ...additionalImages.map((img, idx) => 
+            `Image ${idx+1}: ${img.substring(0, 40)}${img.length > 40 ? '...' : ''} (${ImageService.isCloudinaryUrl(img) ? 'Cloudinary' : 'Other'})`
+          )
+        ]);
+        
+        if (!mainImage && additionalImages.length === 0) {
+          console.warn('Product has no images - placeholders will be used');
+        } else {
+          console.log(`Product has ${additionalImages.length + (mainImage ? 1 : 0)} total images`);
+        }
+        
+        setProduct(product);
         setLoading(false);
-        // Ensure we scroll to top when product loads, using our enhanced utility
+        
+        // Ensure we scroll to top when product loads
         scrollToTop({ instant: true });
       } catch (error) {
         console.error('Error fetching product:', error);
@@ -436,11 +531,11 @@ const ProductDetailPage = () => {
                   lazy={false}
                 />
                 
-                {/* Image counter badge - fixed to always show "1/4" format */}
+                {/* Image counter badge - showing actual count of images from database */}
                 <div className="absolute bottom-4 right-4 bg-black bg-opacity-70 text-white text-sm px-3 py-1 rounded-full flex items-center space-x-1">
                   <span className="font-medium">{selectedImageIndex + 1}</span>
                   <span>/</span> 
-                  <span>4</span>
+                  <span>{Math.min(allImages.length, 4)}</span>
                 </div>
                 
                 {/* Action buttons */}
@@ -463,32 +558,28 @@ const ProductDetailPage = () => {
                 </div>
               </div>
               
-              {/* Thumbnail strip - exactly 4 different thumbnails when possible */}
+              {/* Thumbnail strip - showing all available database images up to 4 */}
               <div className="bg-white w-full flex justify-center p-2 border-t border-gray-100">
                 <div className="flex space-x-3 justify-center overflow-x-auto max-w-full no-scrollbar py-2">
                   {(() => {
-                    // Create an array of unique image indices to use - ALWAYS showing exactly 4 thumbnails
+                    // Create an array of unique image indices to use
+                    // Show all available database images (up to 4)
                     let imageIndices = [];
                     
-                    // Case 1: We have at least 4 images - use the first 4 unique ones
-                    if (allImages.length >= 4) {
-                      imageIndices = [0, 1, 2, 3];
+                    // We prioritize showing actual database images 
+                    // The database has 4 images per product, so we should have 4 images here
+                    if (allImages.length >= 1) {
+                      // Use all available real images, up to 4
+                      for (let i = 0; i < Math.min(allImages.length, 4); i++) {
+                        imageIndices.push(i);
+                      }
+                      
+                      console.log(`Showing ${imageIndices.length} image thumbnails from database`);
                     } 
-                    // Case 2: We have 3 images - use all 3 plus a variant of the first image
-                    else if (allImages.length === 3) {
-                      imageIndices = [0, 1, 2, 'v0-1']; // 3 real images + 1 variant
-                    }
-                    // Case 3: We have 2 images - use both plus variants of each
-                    else if (allImages.length === 2) {
-                      imageIndices = [0, 1, 'v0-1', 'v1-1']; // 2 real images + 2 variants
-                    }
-                    // Case 4: We have 1 image - use it plus three different variants
-                    else if (allImages.length === 1) {
-                      imageIndices = [0, 'v0-1', 'v0-2', 'v0-3']; // 1 real image + 3 variants
-                    }
-                    // Case 5: No real images - use 4 default images or variants
+                    // Fallback if no images at all
                     else {
-                      imageIndices = ['d0', 'd1', 'd2', 'd3']; // Use all 4 default images
+                      imageIndices = ['d0']; // Use a default image as last resort
+                      console.warn('No images available, using default placeholder');
                     }
                     
                     return imageIndices.map((indexKey, displayIndex) => {

@@ -2,9 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Add this at the top of the file */
+/* Enhanced Scrolling Behavior */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden; /* Prevents horizontal scrolling */
+}
+
+/* Page transition styles */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease-in, transform 0.3s ease-in;
+}
+
+/* Apply GPU acceleration for smoother animations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 /* Custom scrollbar styles for thumbnail gallery */

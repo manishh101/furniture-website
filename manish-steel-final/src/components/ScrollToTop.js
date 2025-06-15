@@ -19,18 +19,14 @@ const ScrollToTop = () => {
   const lastPathname = useRef(pathname);
 
   useEffect(() => {
-    // Skip the initial mount to avoid scrolling on app startup
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      lastPathname.current = pathname;
-      return;
-    }
-
-    // Only scroll if the pathname actually changed (not just query params)
+    // Force scroll to top for any pathname change
     if (lastPathname.current !== pathname) {
       console.log(`ScrollToTop: Navigating from ${lastPathname.current} to ${pathname}`);
       
-      // Use our enhanced scroll handler for navigation
+      // Force immediate scroll to top before any animations
+      window.scrollTo(0, 0);
+      
+      // Use the enhanced scroll handler as backup
       ScrollHandlers.onNavigation();
       
       // Update last pathname

@@ -2,6 +2,12 @@
  * Production-ready Image Service
  * Handles image optimization, fallbacks, and responsive loading
  */
+import { 
+  productPlaceholderImage, 
+  householdFurniturePlaceholderImage, 
+  officeProductsPlaceholderImage,
+  bedsPlaceholderImage
+} from '../utils/productPlaceholders';
 
 class ImageService {
   static getCloudinaryUrl(publicId, transformations = {}) {
@@ -21,30 +27,44 @@ class ImageService {
   }
 
   static getOptimizedImageUrl(imageUrl, options = {}) {
+    // If no image URL provided, use placeholder as last resort
     if (!imageUrl) {
+      console.warn('No image URL provided, using placeholder for category:', options.category);
       return this.getPlaceholderImage(options.category);
     }
 
-    // Check if it's already a Cloudinary URL
+    // PRIORITY 1: Cloudinary URLs - optimized cloud delivery
     if (this.isCloudinaryUrl(imageUrl)) {
       return this.enhanceCloudinaryUrl(imageUrl, options);
     }
     
-    // For legacy server URLs, return as-is
-    if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('http')) {
+    // PRIORITY 2: Server-hosted images - legacy support
+    if (imageUrl.startsWith('/uploads/') || (imageUrl.startsWith('http') && !this.isPlaceholder(imageUrl))) {
       return imageUrl;
     }
     
-    // For relative paths, ensure they start with /
+    // PRIORITY 3: Relative paths - ensure proper formatting
     if (!imageUrl.startsWith('/')) {
       return `/${imageUrl}`;
     }
     
     return imageUrl;
   }
+  
+  // Helper to identify placeholder images
+  static isPlaceholder(url) {
+    return url && url.includes('/placeholders/');
+  }
 
   static isCloudinaryUrl(url) {
-    return url && (url.includes('res.cloudinary.com') || url.includes('cloudinary.com'));
+    // More comprehensive check for Cloudinary URLs
+    return url && (
+      url.includes('res.cloudinary.com') || 
+      url.includes('cloudinary.com') ||
+      // Also match Cloudinary URLs that might be using custom CNAME
+      (url.includes('/upload/') && 
+       (url.includes('/v1/') || url.includes('/image/') || url.includes('/video/')))
+    );
   }
 
   static enhanceCloudinaryUrl(url, options = {}) {
@@ -61,29 +81,42 @@ class ImageService {
     return url;
   }
 
+  static ensurePublicAssetUrl(url) {
+    if (!url) return '';
+    
+    // If it's already an absolute URL or a path starting with /, return as is
+    if (url.startsWith('http') || url.startsWith('/')) {
+      return url;
+    }
+    
+    // Otherwise, ensure it starts with '/'
+    return `/${url}`;
+  }
+
   static getPlaceholderImage(category = 'Product') {
-    // Map categories to placeholder images
+    // Map categories to placeholder images - using imported images
     const categoryMap = {
-      'beds': '/placeholders/Beds.png',
-      'chairs': '/placeholders/Chairs.png',
-      'tables': '/placeholders/Tables.png',
-      'wardrobes': '/placeholders/Almirahs-Wardrobes.png',
-      'office-chairs': '/placeholders/Office-Chairs.png',
-      'office-desks': '/placeholders/Office-Desks.png',
-      'storage': '/placeholders/Storage-Racks.png',
-      'lockers': '/placeholders/Lockers.png',
-      'counters': '/placeholders/Counters.png',
-      'display-units': '/placeholders/Display-Units.png',
-      'filing-cabinets': '/placeholders/Filing-Cabinets.png',
-      'commercial-shelving': '/placeholders/Commercial-Shelving.png',
-      'office-storage': '/placeholders/Office-Storage.png',
-      'wood-products': '/placeholders/Wood-Products.png',
-      'household-furniture': '/placeholders/Household-Furniture.png',
-      'office-products': '/placeholders/Office-Products.png'
+      'beds': bedsPlaceholderImage,
+      'chairs': householdFurniturePlaceholderImage,
+      'tables': householdFurniturePlaceholderImage,
+      'wardrobes': householdFurniturePlaceholderImage,
+      'office-chairs': officeProductsPlaceholderImage,
+      'office-desks': officeProductsPlaceholderImage,
+      'storage': officeProductsPlaceholderImage,
+      'lockers': officeProductsPlaceholderImage,
+      'counters': officeProductsPlaceholderImage,
+      'display-units': officeProductsPlaceholderImage,
+      'filing-cabinets': officeProductsPlaceholderImage,
+      'commercial-shelving': officeProductsPlaceholderImage,
+      'office-storage': officeProductsPlaceholderImage,
+      'wood-products': householdFurniturePlaceholderImage,
+      'household-furniture': householdFurniturePlaceholderImage,
+      'office-products': officeProductsPlaceholderImage
     };
 
     const normalizedCategory = category.toLowerCase().replace(/\s+/g, '-');
-    return categoryMap[normalizedCategory] || '/placeholders/Product.png';
+    // Ensure the URL is properly formatted
+    return this.ensurePublicAssetUrl(categoryMap[normalizedCategory] || productPlaceholderImage);
   }
 
   static getResponsiveImageSet(imageUrl, options = {}) {

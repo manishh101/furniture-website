@@ -26,7 +26,10 @@ const CACHE_EXPIRY = 10 * 60 * 1000;
 const discoverPort = async () => {
   // If we're in production, use the environment variable
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://manish-steel-api.onrender.com/api';
+    // Added explicit log for debugging
+    const apiUrl = process.env.REACT_APP_API_URL || 'https://manish-steel-api.onrender.com/api';
+    console.log('Production environment detected, using API URL:', apiUrl);
+    return apiUrl;
   }
   
   // Check if we have a cached API URL

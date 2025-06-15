@@ -180,26 +180,50 @@ class CacheService {
   }
 
   /**
-   * Preload products for common categories
+   * Preload common products for browsing
    */
   async preloadCommonProducts() {
+    // Already preloaded products
+    const preloadedCategories = new Set();
+    
     try {
+      // Get all categories
       const categories = await this.getCategories();
       
-      // Preload all products first
-      this.getProducts('all').catch(err => 
-        console.warn('CacheService: Failed to preload all products:', err.message)
-      );
-      
-      // Preload top 3 categories
-      const topCategories = categories.slice(0, 3);
-      for (const category of topCategories) {
-        this.getProducts(category.id).catch(err => 
-          console.warn('CacheService: Failed to preload category products:', err.message)
-        );
+      if (!categories || categories.length === 0) {
+        console.warn('CacheService: No categories to preload products for');
+        return;
       }
-    } catch (error) {
-      console.warn('CacheService: Preload failed:', error.message);
+      
+      // Preload top categories (max 3)
+      const topCategories = categories.slice(0, 3);
+      
+      console.log(`CacheService: Preloading products for ${topCategories.length} top categories`);
+      
+      for (const category of topCategories) {
+        // Skip if already preloaded
+        const categoryId = category._id || category.id;
+        if (preloadedCategories.has(categoryId)) continue;
+        
+        // Preload category products
+        this.getProducts(categoryId).catch(err => {
+          console.warn(`Failed to preload products for ${category.name}:`, err.message);
+        });
+        
+        preloadedCategories.add(categoryId);
+      }
+      
+      // Import and use CategoryImageService to preload thumbnails
+      if (typeof window !== 'undefined') {
+        import('./categoryImageService').then(module => {
+          const CategoryImageService = module.default;
+          CategoryImageService.preloadCommonCategoryThumbnails();
+        });
+      }
+      
+      console.log(`CacheService: Preloaded products for ${preloadedCategories.size} categories`);
+    } catch (err) {
+      console.error('CacheService: Error preloading products:', err);
     }
   }
 

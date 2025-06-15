@@ -6,6 +6,7 @@ import WhatsAppButton from './WhatsAppButton';
 import BottomNavigation from './BottomNavigation';
 import MobileMenuDrawer from './MobileMenuDrawer';
 import CategoryDrawer from './CategoryDrawer';
+import PageTransition from './PageTransition';
 
 // Enhanced LayoutWrapper component for centralized menu state management
 const LayoutWrapper = ({ children }) => {
@@ -111,7 +112,9 @@ const LayoutWrapper = ({ children }) => {
       )}
       
       <main id="main-content" className="flex-grow" tabIndex="-1" role="main">
-        {children}
+        <PageTransition>
+          {children}
+        </PageTransition>
       </main>
       
       {!isAdminRoute && <Footer />}

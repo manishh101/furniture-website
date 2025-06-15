@@ -4,13 +4,20 @@ import homePageImage from '../assets/home-page-1.png';
 import { PlaceholderImage } from '../utils/placeholders';
 import { useCategoryNavigation } from '../hooks/useCategoryNavigation';
 import cacheService from '../services/cacheService';
+import CategoryImageService from '../services/categoryImageService';
 import TopProductsSection from '../components/TopProductsSection';
 import MostSellingProductsSection from '../components/MostSellingProductsSection';
 import { testimonials } from '../data/testimonials';
+import ScrollAnimator from '../components/ScrollAnimator';
+import OptimizedImage from '../components/common/OptimizedImage';
 
 const HomePage = () => {
   // Use optimized category navigation hook
   const { categories, loading, navigateToCategory } = useCategoryNavigation();
+  // State for category thumbnail images
+  const [categoryThumbnails, setCategoryThumbnails] = useState({});
+  // Additional loading state for thumbnails
+  const [loadingThumbnails, setLoadingThumbnails] = useState(true);
   
   // State for testimonial carousel
   const [currentTestimonialPage, setCurrentTestimonialPage] = useState(0);
@@ -20,8 +27,55 @@ const HomePage = () => {
   useEffect(() => {
     setTimeout(() => {
       cacheService.preloadCommonProducts();
+      // Also preload category thumbnails for better UX
+      CategoryImageService.preloadCommonCategoryThumbnails();
     }, 500);
   }, []);
+  
+  // Load thumbnail images for each category
+  useEffect(() => {
+    const loadCategoryThumbnails = async () => {
+      if (!categories || categories.length === 0) return;
+      
+      setLoadingThumbnails(true);
+      const thumbnails = {};
+      
+      // Also preload thumbnails for hardcoded fallback category IDs
+      const fallbackCategoryIds = ['684c14969550362979fd95a2', '684c14969550362979fd95a3', '684c14969550362979fd95a4'];
+      
+      // Combine all category IDs to load thumbnails for
+      const allCategoryIds = [
+        ...categories.map(category => category._id || category.id),
+        ...fallbackCategoryIds
+      ];
+      
+      // Process all categories in parallel for better performance
+      await Promise.all(allCategoryIds.map(async (categoryId) => {
+        try {
+          const category = categories.find(c => (c._id || c.id) === categoryId) || 
+                          { name: categoryId === '684c14969550362979fd95a2' ? 'Household Furniture' :
+                                 categoryId === '684c14969550362979fd95a3' ? 'Office Furniture' : 
+                                 'Commercial Furniture' };
+                                 
+          const thumbnail = await CategoryImageService.getCategoryThumbnailImage(
+            categoryId,
+            category.name
+          );
+          thumbnails[categoryId] = thumbnail;
+          console.log(`Loaded thumbnail for ${category.name}: ${thumbnail.substring(0, 30)}...`);
+        } catch (error) {
+          console.error(`Failed to load thumbnail for category ${categoryId}:`, error);
+        }
+      }));
+      
+      setCategoryThumbnails(thumbnails);
+      setLoadingThumbnails(false);
+    };
+    
+    if (categories && categories.length > 0) {
+      loadCategoryThumbnails();
+    }
+  }, [categories]);
 
   // Handle category click with instant navigation
   const handleCategoryClick = (categoryId, categoryName) => {
@@ -81,13 +135,13 @@ const HomePage = () => {
               <div className="flex flex-wrap gap-4 animate-slideInLeft" style={{animationDelay: '0.4s'}}>
                 <Link 
                   to="/products" 
-                  className="bg-primary text-white font-bold px-6 py-3 rounded-md hover:bg-primary/80 transition-all hover:scale-105"
+                  className="bg-primary text-white font-bold px-8 py-3 rounded-md hover:bg-primary/80 transition-all hover:scale-105 w-40 text-center"
                 >
                   Explore Products
                 </Link>
                 <Link 
                   to="/contact" 
-                  className="bg-white text-primary font-bold px-6 py-3 rounded-md border-2 border-primary hover:bg-primary/10 transition-all hover:scale-105"
+                  className="bg-white text-primary font-bold px-8 py-3 rounded-md border-2 border-primary hover:bg-primary/10 transition-all hover:scale-105 w-40 text-center"
                 >
                   Contact Us
                 </Link>
@@ -114,44 +168,52 @@ const HomePage = () => {
       {/* Features Section */}
       <section className="py-16 bg-primary text-white">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 animate-fadeIn">Why Choose Our Furniture?</h2>
+          <ScrollAnimator animation="fadeUp">
+            <h2 className="text-3xl font-bold text-center mb-12">Why Choose Our Furniture?</h2>
+          </ScrollAnimator>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm animate-fadeInUp" style={{animationDelay: '0.1s'}}>
-              <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4 mx-auto animate-spin-slow">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
+            <ScrollAnimator animation="fadeUp" delay={0.1}>
+              <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
+                <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4 mx-auto animate-spin-slow">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-center mb-2">Durability</h3>
+                <p className="text-center">
+                  Our furniture is built to last, using high-quality steel and precision manufacturing techniques.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-center mb-2">Durability</h3>
-              <p className="text-center">
-                Our furniture is built to last, using high-quality steel and precision manufacturing techniques.
-              </p>
-            </div>
+            </ScrollAnimator>
             
-            <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm animate-fadeInUp" style={{animationDelay: '0.3s'}}>
-              <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4 mx-auto animate-spin-slow">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
+            <ScrollAnimator animation="fadeUp" delay={0.2}>
+              <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
+                <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4 mx-auto animate-spin-slow">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-center mb-2">Design</h3>
+                <p className="text-center">
+                  Modern, functional designs that blend seamlessly with your decor and lifestyle.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-center mb-2">Design</h3>
-              <p className="text-center">
-                Modern, functional designs that blend seamlessly with your decor and lifestyle.
-              </p>
-            </div>
+            </ScrollAnimator>
             
-            <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm animate-fadeInUp" style={{animationDelay: '0.5s'}}>
-              <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4 mx-auto animate-spin-slow">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+            <ScrollAnimator animation="fadeUp" delay={0.3}>
+              <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
+                <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4 mx-auto animate-spin-slow">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-center mb-2">Fast Delivery</h3>
+                <p className="text-center">
+                  Quick and reliable delivery service across Nepal with professional installation support.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-center mb-2">Fast Delivery</h3>
-              <p className="text-center">
-                Quick and reliable delivery service across Nepal with professional installation support.
-              </p>
-            </div>
+            </ScrollAnimator>
           </div>
         </div>
       </section>
@@ -183,11 +245,20 @@ const HomePage = () => {
                     style={{animationDelay: `${0.1 + (index * 0.1)}s`}}
                   >
                     <div className="h-64 overflow-hidden relative">
-                      <PlaceholderImage 
-                        src={category.imageUrl || `https://via.placeholder.com/400x500/0057A3/FFFFFF?text=${encodeURIComponent(category.name)}`}
-                        alt={category.name} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
+                      {categoryThumbnails[category._id || category.id] ? (
+                        // Use actual product image from the category's products
+                        <OptimizedImage 
+                          src={categoryThumbnails[category._id || category.id]}
+                          alt={`${category.name} Products`} 
+                          category={category.name}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        // Fallback to placeholder while loading
+                        <div className="w-full h-full bg-gray-100 animate-pulse flex items-center justify-center text-gray-400">
+                          Loading products...
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
                         <button 
                           onClick={() => handleCategoryClick(category._id || category.id, category.name)}
@@ -219,9 +290,11 @@ const HomePage = () => {
                 <>
                   <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl animate-fadeInUp group" style={{animationDelay: '0.1s'}}>
                     <div className="h-64 overflow-hidden relative">
-                      <PlaceholderImage 
-                        src="https://via.placeholder.com/400x500/0057A3/FFFFFF?text=Household+Furniture" 
-                        alt="Household Furniture" 
+                      {/* This will be called when fallback categories are shown */}
+                      <OptimizedImage
+                        src={categoryThumbnails['684c14969550362979fd95a2'] || '/placeholders/Household-Furniture.png'}
+                        alt="Household Furniture"
+                        category="Household Furniture"
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
@@ -252,9 +325,10 @@ const HomePage = () => {
                   
                   <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl animate-fadeInUp group" style={{animationDelay: '0.2s'}}>
                     <div className="h-64 overflow-hidden relative">
-                      <PlaceholderImage 
-                        src="https://via.placeholder.com/400x500/0057A3/FFFFFF?text=Office+Furniture" 
+                      <OptimizedImage 
+                        src={categoryThumbnails['684c14969550362979fd95a3'] || '/placeholders/Office-Products.png'} 
                         alt="Office Furniture" 
+                        category="Office Furniture"
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
@@ -285,9 +359,10 @@ const HomePage = () => {
                   
                   <div className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl animate-fadeInUp group" style={{animationDelay: '0.3s'}}>
                     <div className="h-64 overflow-hidden relative">
-                      <PlaceholderImage 
-                        src="https://via.placeholder.com/400x500/0057A3/FFFFFF?text=Commercial+Furniture" 
+                      <OptimizedImage 
+                        src={categoryThumbnails['684c14969550362979fd95a4'] || '/placeholders/Commercial-Shelving.png'} 
                         alt="Commercial Furniture" 
+                        category="Commercial Furniture"
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
@@ -475,13 +550,13 @@ const HomePage = () => {
           <div className="flex flex-wrap justify-center gap-4 animate-fadeIn" style={{animationDelay: '0.4s'}}>
             <Link 
               to="/contact" 
-              className="bg-white text-primary font-bold px-8 py-3 rounded-md hover:bg-white/90 transition-all hover:scale-105"
+              className="bg-white text-primary font-bold px-8 py-3 rounded-md hover:bg-white/90 transition-all hover:scale-105 w-40 text-center"
             >
               Contact Us
             </Link>
             <Link 
               to="/custom-order" 
-              className="bg-accent text-primary font-bold px-8 py-3 rounded-md hover:bg-accent/80 transition-all hover:scale-105"
+              className="bg-accent text-primary font-bold px-8 py-3 rounded-md hover:bg-accent/80 transition-all hover:scale-105 w-40 text-center"
             >
               Request Custom Order
             </Link>

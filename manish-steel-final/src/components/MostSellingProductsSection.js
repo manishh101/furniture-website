@@ -1,38 +1,216 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FaStar, FaArrowRight, FaFire, FaTrophy, FaShoppingCart } from 'react-icons/fa';
 import { productAPI } from '../services/productService';
 import { PlaceholderImage } from '../utils/placeholders';
 import OptimizedImage from './common/OptimizedImage';
 import ImageService from '../services/imageService';
+import mobileDebugger from '../utils/mobileDebugger';
 
+// Error boundary to prevent entire component from failing
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("MostSellingProductsSection failed to render:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI
+      return (
+        <section className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-primary mb-4">Most Selling Products</h2>
+              <p>Loading products...</p>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Wrap the entire component with error boundary in Home Page
+const WrappedMostSellingProductsSection = () => {
+  return (
+    <ErrorBoundary>
+      <MostSellingProductsSection />
+    </ErrorBoundary>
+  );
+};
+
+// Main component implementation
 const MostSellingProductsSection = () => {
   const [bestSellingProducts, setBestSellingProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const sectionRef = useRef(null); // Add ref for intersection observer
 
   useEffect(() => {
-    fetchBestSellingProducts();
+    // Log device info for debugging
+    mobileDebugger.mobileLog('MostSellingProductsSection mounted', {
+      isMobile: mobileDebugger.isMobileDevice(),
+      network: mobileDebugger.checkMobileNetwork()
+    });
+    
+    // Only fetch data when the section is visible or about to become visible
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          mobileDebugger.mobileLog('MostSellingProductsSection visible, fetching data');
+          fetchBestSellingProducts();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+    };
   }, []);
 
   const fetchBestSellingProducts = async () => {
     try {
       setLoading(true);
-      // Direct fetch call to ensure it works
-      const response = await fetch('http://localhost:5000/api/products/best-selling?limit=6');
+      console.log('Fetching best-selling products...');
+      
+      // Use the proper API client with environment awareness
+      try {
+        // First try using the proper productAPI service
+        const data = await productAPI.getMostSellingProducts(6);
+        console.log('Best selling products API response:', data);
+        
+        if (data && data.products) {
+          setBestSellingProducts(data.products);
+          return;
+        }
+      } catch (serviceError) {
+        console.warn('Failed to fetch using productAPI service, trying direct fetch:', serviceError);
+      }
+      
+      // Proper environment detection and URL construction
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 
+                        ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+                         ? 'http://localhost:5000/api' 
+                         : 'https://manish-steel-api.onrender.com/api');
+      
+      console.log('Using API base URL for best-selling products:', apiBaseUrl);
+      
+      // First try the dedicated endpoint
+      try {
+        const response = await fetch(`${apiBaseUrl}/products/best-selling?limit=6`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.products && data.products.length > 0) {
+            setBestSellingProducts(data.products);
+            return;
+          }
+        }
+      } catch (endpointError) {
+        console.warn('Best-selling products endpoint failed, trying alternative:', endpointError);
+      }
+      
+      // If dedicated endpoint fails, try the general sorting endpoint
+      const response = await fetch(`${apiBaseUrl}/products?sortBy=salesCount&order=desc&limit=6`);
+      
+      if (!response.ok) {
+        throw new Error(`API response error: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data.success && data.products) {
         setBestSellingProducts(data.products);
+      } else if (data.products) {
+        // Some APIs just return the products array directly
+        setBestSellingProducts(data.products);
       } else {
+        console.warn('No products in API response:', data);
         setError('No best-selling products found');
+        
+        // Use fallback data in production
+        if (process.env.NODE_ENV === 'production') {
+          setBestSellingProducts(getFallbackProducts());
+          setError(null);
+        }
       }
     } catch (error) {
-      console.error('❌ Error fetching best selling products:', error);
+      mobileDebugger.mobileError('Error fetching best selling products:', error);
       setError('Failed to load most selling products');
+      
+      // In production, use fallback data instead of showing error
+      if (process.env.NODE_ENV === 'production') {
+        setBestSellingProducts(getFallbackProducts());
+        setError(null);
+      }
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Fallback products data for production
+  const getFallbackProducts = () => {
+    return [
+      {
+        _id: 'fallback-best1',
+        name: 'Executive Office Chair',
+        description: 'Premium ergonomic chair for maximum comfort',
+        price: 15000,
+        rating: 4.9,
+        salesCount: 250,
+        image: '/placeholders/Office-Chairs.png',
+        category: 'Office Furniture'
+      },
+      {
+        _id: 'fallback-best2',
+        name: 'Steel Almirah',
+        description: 'Durable steel almirah with 4 shelves',
+        price: 22000,
+        rating: 4.8,
+        salesCount: 180,
+        image: '/placeholders/Almirahs-Wardrobes.png',
+        category: 'Household Furniture'
+      },
+      {
+        _id: 'fallback-best3',
+        name: 'Computer Table',
+        description: 'Modern design with cable management',
+        price: 8500,
+        rating: 4.7,
+        salesCount: 150,
+        image: '/placeholders/Office-Desks.png',
+        category: 'Office Furniture'
+      },
+      {
+        _id: 'fallback-best4',
+        name: 'Double Bed',
+        description: 'Strong steel frame with stylish design',
+        price: 16500,
+        rating: 4.8,
+        salesCount: 120,
+        image: '/placeholders/Beds.png',
+        category: 'Beds'
+      }
+    ];
   };
 
   const formatPrice = (price) => {
@@ -112,7 +290,7 @@ const MostSellingProductsSection = () => {
   }
 
   return (
-    <section className="py-16 bg-white">
+    <section ref={sectionRef} className="py-16 bg-white">
       <div className="container mx-auto px-4">
         {/* Section Header */}
         <div className="text-center mb-12 animate-fadeIn">
@@ -141,10 +319,13 @@ const MostSellingProductsSection = () => {
               >
                 {/* Product Image */}
                 <div className="relative h-64 overflow-hidden">
-                  <img
-                    src={product.image || '/images/furniture-placeholder.jpg'}
-                    alt={product.name}
+                  <OptimizedImage
+                    src={product.image}
+                    alt={ImageService.getImageAlt(product)}
+                    category={product.category} 
+                    size="medium"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    lazy={true}
                   />
                   
                   {/* Rank Badge */}
@@ -240,4 +421,5 @@ const MostSellingProductsSection = () => {
   );
 };
 
-export default MostSellingProductsSection;
+// Export the wrapped version
+export default WrappedMostSellingProductsSection;

@@ -1,11 +1,12 @@
 # Manish Steel Furniture - Frontend
 
-Modern React-based frontend for the Manish Steel Furniture e-commerce platform.
+Modern React-based frontend for the Manish Steel Furniture e-commerce platform with professional page transitions and animations.
 
 ## Technology Stack
 
 - React 19.x with Function Components and Hooks
 - React Router v7 for navigation
+- Framer Motion for professional animations and transitions
 - Tailwind CSS for responsive styling
 - Axios for API communication
 - JWT authentication
@@ -54,6 +55,17 @@ The application follows a component-based architecture with:
 - **Components**: Reusable UI elements
 - **Services**: API communication modules
 - **Utils**: Helper functions and data structures
+
+## Animation System
+
+The website features a professional animation system similar to evereststeel.com.np:
+
+- **Page Transitions**: Smooth transitions between routes using Framer Motion
+- **Scroll Animations**: Elements animate as they scroll into view
+- **Performance Optimized**: GPU-accelerated animations for smooth performance
+- **Accessibility**: Respects user preferences for reduced motion
+
+Detailed documentation can be found in `src/docs/ANIMATIONS.md`.
 
 ## Admin System
 

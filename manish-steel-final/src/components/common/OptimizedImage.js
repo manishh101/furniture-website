@@ -36,20 +36,46 @@ const OptimizedImage = ({
     tall: 'aspect-[3/4]'
   };
 
-  // Get optimized image source
+  // Get optimized image source - prioritize database images
   const getOptimizedSrc = () => {
+    // No src provided - use placeholder only as a last resort
     if (!src) {
+      console.warn('Missing image source, using placeholder for category:', category);
       return ImageService.getPlaceholderImage(category);
     }
     
-    return ImageService.getOptimizedImageUrl(src, {
+    // Use actual image from source (should be a Cloudinary URL from database)
+    const optimizedUrl = ImageService.getOptimizedImageUrl(src, {
       ...sizeConfig[size],
       category
     });
+    
+    // Log if using a placeholder instead of an actual image
+    if (ImageService.isPlaceholder(optimizedUrl)) {
+      console.warn('Using placeholder instead of actual image for:', src);
+    }
+    
+    return optimizedUrl;
   };
 
-  // Get fallback source
+  // Get fallback source - used only when primary source fails to load
   const getFallbackSrc = () => {
+    // Try to use the original source with different parameters first
+    if (src && !ImageService.isPlaceholder(src)) {
+      const retryUrl = ImageService.getOptimizedImageUrl(src, {
+        ...sizeConfig[size],
+        quality: 'auto:low', // Try a lower quality version first
+        category
+      });
+      
+      if (retryUrl !== src) {
+        console.log('Trying alternative optimization for:', src);
+        return retryUrl;
+      }
+    }
+    
+    // If that doesn't work, fall back to a placeholder
+    console.warn('Falling back to placeholder image for category:', category);
     return ImageService.getPlaceholderImage(category);
   };
 
@@ -87,13 +113,32 @@ const OptimizedImage = ({
   };
 
   const handleError = (e) => {
-    console.warn('Image failed to load:', imageState.currentSrc);
-    setImageState(prev => ({ 
-      ...prev, 
-      error: true, 
-      currentSrc: getFallbackSrc(),
-      loaded: true
-    }));
+    const failedSrc = imageState.currentSrc;
+    console.warn('Image failed to load:', failedSrc);
+    
+    // Check if this was already a placeholder - if so, don't try to load another placeholder
+    const wasAlreadyPlaceholder = ImageService.isPlaceholder(failedSrc);
+    
+    if (wasAlreadyPlaceholder) {
+      console.error('Even placeholder image failed to load:', failedSrc);
+      // Just mark as loaded to avoid infinite error loop
+      setImageState(prev => ({ 
+        ...prev, 
+        error: true,
+        loaded: true
+      }));
+    } else {
+      // Try the fallback (placeholder) instead
+      const fallbackSrc = getFallbackSrc();
+      console.log('Using fallback image:', fallbackSrc);
+      setImageState(prev => ({ 
+        ...prev, 
+        error: true, 
+        currentSrc: fallbackSrc,
+        loaded: true
+      }));
+    }
+    
     onError?.(e);
   };
 
