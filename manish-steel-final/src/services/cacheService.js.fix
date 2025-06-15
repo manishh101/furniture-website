@@ -1,0 +1,293 @@
+/**
+ * High-performance caching service for categories and products
+ * Provides instant loading with smart cache management
+ */
+import { categoryAPI, productAPI } from './api';
+
+class CacheService {
+  constructor() {
+    this.caches = {
+      categories: new Map(),
+      products: new Map(),
+      categoryProducts: new Map(), // Cache for products by category
+      metadata: new Map() // Cache metadata like timestamps, counts
+    };
+    
+    this.cacheDuration = {
+      categories: 5 * 60 * 1000, // 5 minutes
+      products: 3 * 60 * 1000,   // 3 minutes
+      categoryProducts: 2 * 60 * 1000 // 2 minutes
+    };
+    
+    // Initialize cache cleanup
+    this.startCacheCleanup();
+  }
+
+  /**
+   * Cache key generators
+   */
+  getCategoryKey() {
+    return 'all_categories';
+  }
+
+  getProductKey(category = 'all', subcategory = null) {
+    return `products_${category}_${subcategory || 'none'}`;
+  }
+
+  getProductsMetaKey(category = 'all', subcategory = null) {
+    return `meta_${this.getProductKey(category, subcategory)}`;
+  }
+
+  /**
+   * Check if cache entry is valid
+   */
+  isCacheValid(key, cacheType) {
+    const entry = this.caches[cacheType].get(key);
+    if (!entry) return false;
+    
+    const duration = this.cacheDuration[cacheType];
+    const isValid = (Date.now() - entry.timestamp) < duration;
+    
+    if (!isValid) {
+      this.caches[cacheType].delete(key);
+    }
+    
+    return isValid;
+  }
+
+  /**
+   * Set cache entry with timestamp
+   */
+  setCache(key, data, cacheType) {
+    this.caches[cacheType].set(key, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Get cache entry
+   */
+  getCache(key, cacheType) {
+    const entry = this.caches[cacheType].get(key);
+    return entry ? entry.data : null;
+  }
+
+  /**
+   * Categories with instant loading
+   */
+  async getCategories(forceRefresh = false) {
+    const key = this.getCategoryKey();
+    
+    // Return cached data if valid
+    if (!forceRefresh && this.isCacheValid(key, 'categories')) {
+      console.log('CacheService: Returning cached categories');
+      const cachedCategories = this.getCache(key, 'categories');
+      return Array.isArray(cachedCategories) ? cachedCategories : [];
+    }
+
+    try {
+      console.log('CacheService: Fetching fresh categories from API');
+      const response = await categoryAPI.getAll(true);
+      
+      if (response?.data && Array.isArray(response.data)) {
+        const normalizedCategories = response.data.map(this.normalizeCategory);
+        
+        // Cache the normalized data
+        this.setCache(key, normalizedCategories, 'categories');
+        
+        console.log('CacheService: Cached', normalizedCategories.length, 'categories');
+        return normalizedCategories;
+      }
+      
+      throw new Error('Invalid categories response');
+    } catch (error) {
+      console.warn('CacheService: Categories API failed, using fallback:', error.message);
+      
+      // Return cached data if available, even if expired
+      const cachedData = this.getCache(key, 'categories');
+      if (cachedData) {
+        console.log('CacheService: Using expired cache as fallback');
+        return Array.isArray(cachedData) ? cachedData : [];
+      }
+      
+      // Ultimate fallback to empty array
+      console.log('CacheService: Ultimate fallback - returning empty categories array');
+      return [];
+    }
+  }
+
+  /**
+   * Products with intelligent caching and instant loading
+   */
+  async getProducts(category = 'all', subcategory = null, forceRefresh = false) {
+    const key = this.getProductKey(category, subcategory);
+    
+    // Return cached data if valid
+    if (!forceRefresh && this.isCacheValid(key, 'categoryProducts')) {
+      console.log('CacheService: Returning cached products for', { category, subcategory });
+      const cachedProducts = this.getCache(key, 'categoryProducts');
+      return Array.isArray(cachedProducts) ? cachedProducts : [];
+    }
+
+    try {
+      console.log('CacheService: Fetching fresh products from API for', { category, subcategory });
+      
+      let response;
+      if (category === 'all') {
+        // Get all products
+        response = await productAPI.getAll(1, 1000);
+      } else {
+        // Get products by category
+        response = await productAPI.getByCategoryAlternative(category, { 
+          subcategory,
+          limit: 1000,
+          timestamp: Date.now()
+        });
+      }
+      
+      if (response?.data) {
+        const productsData = response.data;
+        let products = [];
+        
+        // Handle different API response formats
+        if (Array.isArray(productsData)) {
+          products = productsData;
+        } else if (productsData.products && Array.isArray(productsData.products)) {
+          products = productsData.products;
+        } else {
+          console.warn('CacheService: Unexpected products response format', productsData);
+          products = [];
+        }
+        
+        // Cache the products
+        this.setCache(key, products, 'categoryProducts');
+        
+        // Cache metadata
+        const metaKey = this.getProductsMetaKey(category, subcategory);
+        this.setCache(metaKey, {
+          count: products.length,
+          category,
+          subcategory,
+          lastFetch: Date.now()
+        }, 'metadata');
+        
+        console.log('CacheService: Cached', products.length, 'products for', { category, subcategory });
+        return products;
+      }
+      
+      throw new Error('Invalid products response');
+    } catch (error) {
+      console.warn('CacheService: Products API failed, using fallback:', error.message);
+      
+      // Return cached data if available, even if expired
+      const cachedData = this.getCache(key, 'categoryProducts');
+      if (cachedData) {
+        console.log('CacheService: Using expired cache as fallback');
+        return Array.isArray(cachedData) ? cachedData : [];
+      }
+      
+      // Ultimate fallback to empty array
+      console.log('CacheService: Ultimate fallback - returning empty products array');
+      return [];
+    }
+  }
+
+  /**
+   * Preload products for common categories
+   */
+  async preloadCommonProducts() {
+    try {
+      const categories = await this.getCategories();
+      
+      // Preload all products first
+      this.getProducts('all').catch(err => 
+        console.warn('CacheService: Failed to preload all products:', err.message)
+      );
+      
+      // Preload top 3 categories
+      const topCategories = categories.slice(0, 3);
+      
+      console.log('CacheService: Preloading products for top categories:', 
+        topCategories.map(c => c.name || c.id));
+        
+      for (const category of topCategories) {
+        const categoryId = category.id || category._id;
+        if (categoryId) {
+          this.getProducts(categoryId).catch(err => 
+            console.warn('CacheService: Failed to preload category products:', err.message)
+          );
+        }
+      }
+    } catch (error) {
+      console.error('CacheService: Failed to preload common products:', error.message);
+    }
+  }
+  
+  /**
+   * Clear all caches or a specific cache
+   */
+  clearCache(cacheType = null) {
+    if (cacheType) {
+      if (this.caches[cacheType]) {
+        this.caches[cacheType].clear();
+        console.log(`CacheService: Cleared ${cacheType} cache`);
+      }
+    } else {
+      Object.keys(this.caches).forEach(type => {
+        this.caches[type].clear();
+      });
+      console.log('CacheService: Cleared all caches');
+    }
+  }
+  
+  /**
+   * Start periodic cache cleanup
+   */
+  startCacheCleanup() {
+    const cleanupInterval = 10 * 60 * 1000; // 10 minutes
+    
+    setInterval(() => {
+      console.log('CacheService: Running cache cleanup');
+      
+      // Check each cache type
+      Object.keys(this.caches).forEach(cacheType => {
+        const duration = this.cacheDuration[cacheType] || 5 * 60 * 1000;
+        const cache = this.caches[cacheType];
+        
+        // Check each entry
+        for (const [key, entry] of cache.entries()) {
+          if (Date.now() - entry.timestamp > duration) {
+            cache.delete(key);
+          }
+        }
+      });
+    }, cleanupInterval);
+  }
+  
+  /**
+   * Normalize category data
+   */
+  normalizeCategory = (category) => {
+    return {
+      id: category._id || category.id,
+      _id: category._id || category.id, // Keep both for compatibility
+      name: category.name,
+      image: category.image,
+      description: category.description,
+      subcategories: Array.isArray(category.subcategories) 
+        ? category.subcategories.map(sub => ({
+            id: sub._id || sub.id,
+            _id: sub._id || sub.id,
+            name: sub.name,
+            categoryId: category._id || category.id,
+            category: category._id || category.id
+          }))
+        : []
+    };
+  };
+}
+
+// Create a singleton instance
+const cacheService = new CacheService();
+export default cacheService;
