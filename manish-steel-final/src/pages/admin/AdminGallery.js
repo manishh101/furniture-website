@@ -4,7 +4,7 @@ import { galleryAPI } from '../../services/galleryAPI';
 import api from '../../services/api';
 import ImageService from '../../services/imageService';
 import { toast } from 'react-toastify';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
   FaPlus, 
   FaEdit, 
