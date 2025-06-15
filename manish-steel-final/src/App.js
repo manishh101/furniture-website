@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import LayoutWrapper from './components/LayoutWrapper';
 import ScrollToTop from './components/ScrollToTop';
+import ApiHealthCheck from './components/ApiHealthCheck';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import ProductsPage from './pages/ProductsPage';
@@ -28,9 +29,12 @@ import AdminCustomOrders from './pages/admin/AdminCustomOrders';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
+  const [apiStatus, setApiStatus] = useState('checking');
+
   return (
     <Router>
       <ScrollToTop />
+      <ApiHealthCheck onStatusChange={setApiStatus} />
       <LayoutWrapper>
         <Routes>
           {/* Public Routes */}
