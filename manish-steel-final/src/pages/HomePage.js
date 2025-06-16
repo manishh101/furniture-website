@@ -5,11 +5,12 @@ import { PlaceholderImage } from '../utils/placeholders';
 import { useCategoryNavigation } from '../hooks/useCategoryNavigation';
 import cacheService from '../services/cacheService';
 import CategoryImageService from '../services/categoryImageService';
-import TopProductsSection from '../components/TopProductsSection';
-import MostSellingProductsSection from '../components/MostSellingProductsSection';
+import CleanTopProductsSection from '../components/CleanTopProductsSection';
+import CleanMostSellingSection from '../components/CleanMostSellingSection';
 import { testimonials } from '../data/testimonials';
 import ScrollAnimator from '../components/ScrollAnimator';
 import OptimizedImage from '../components/common/OptimizedImage';
+import ApiDebugger from '../components/ApiDebugger';
 
 const HomePage = () => {
   // Use optimized category navigation hook
@@ -135,13 +136,15 @@ const HomePage = () => {
               <div className="flex flex-wrap gap-4 animate-slideInLeft" style={{animationDelay: '0.4s'}}>
                 <Link 
                   to="/products" 
-                  className="bg-primary text-white font-bold px-8 py-3 rounded-md hover:bg-primary/80 transition-all hover:scale-105 w-40 text-center"
+                  className="bg-primary text-white font-bold px-6 py-3 rounded-md hover:bg-primary/80 transition-all hover:scale-105"
+                  style={{minWidth: '140px', textAlign: 'center'}}
                 >
                   Explore Products
                 </Link>
                 <Link 
                   to="/contact" 
-                  className="bg-white text-primary font-bold px-8 py-3 rounded-md border-2 border-primary hover:bg-primary/10 transition-all hover:scale-105 w-40 text-center"
+                  className="bg-white text-primary font-bold px-6 py-3 rounded-md border-2 border-primary hover:bg-primary/10 transition-all hover:scale-105"
+                  style={{minWidth: '140px', textAlign: 'center'}}
                 >
                   Contact Us
                 </Link>
@@ -410,10 +413,10 @@ const HomePage = () => {
       </section>
       
       {/* Our Top Products Section */}
-      <TopProductsSection />
+      <CleanTopProductsSection />
       
       {/* Most Selling Products Section */}
-      <MostSellingProductsSection />
+      <CleanMostSellingSection />
       
       {/* Enhanced Testimonials Section */}
       <section className="py-16 bg-gradient-to-b from-gray-100 to-white relative overflow-hidden">
@@ -550,19 +553,28 @@ const HomePage = () => {
           <div className="flex flex-wrap justify-center gap-4 animate-fadeIn" style={{animationDelay: '0.4s'}}>
             <Link 
               to="/contact" 
-              className="bg-white text-primary font-bold px-8 py-3 rounded-md hover:bg-white/90 transition-all hover:scale-105 w-40 text-center"
+              className="bg-white text-primary font-bold px-8 py-3 rounded-md hover:bg-white/90 transition-all hover:scale-105"
+              style={{minWidth: '140px', textAlign: 'center'}}
             >
               Contact Us
             </Link>
             <Link 
               to="/custom-order" 
-              className="bg-accent text-primary font-bold px-8 py-3 rounded-md hover:bg-accent/80 transition-all hover:scale-105 w-40 text-center"
+              className="bg-accent text-primary font-bold px-8 py-3 rounded-md hover:bg-accent/80 transition-all hover:scale-105"
+              style={{minWidth: '140px', textAlign: 'center'}}
             >
               Request Custom Order
             </Link>
           </div>
         </div>
       </section>
+
+      {/* Temporary API Debugger - remove after fixing issues */}
+      {process.env.NODE_ENV !== 'production' && (
+        <div className="container mx-auto px-4 py-8">
+          <ApiDebugger />
+        </div>
+      )}
     </div>
   );
 };

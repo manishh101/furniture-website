@@ -6,6 +6,8 @@ import { PlaceholderImage } from '../utils/placeholders';
 import OptimizedImage from './common/OptimizedImage';
 import ImageService from '../services/imageService';
 import mobileDebugger from '../utils/mobileDebugger';
+import { sanitizeApiUrl } from '../utils/apiUrlHelper';
+import { sanitizeApiUrl } from '../utils/apiUrlHelper';
 
 // Error boundary to prevent entire component from failing
 class ErrorBoundary extends React.Component {
@@ -92,48 +94,109 @@ const TopProductsSection = () => {
       setLoading(true);
       console.log('Fetching top products...');
       
-      // Use the proper API client with environment awareness
+      // Keep track of attempts for debugging
+      let attempts = [];
+      
+      // ATTEMPT 1: Use productAPI service
       try {
-        // First try using the proper productAPI service
-        const data = await productAPI.getTopProducts(6);
-        console.log('Top products API response:', data);
+        attempts.push('productAPI.getTopProducts');
+        console.log('Attempt 1: Using productAPI.getTopProducts...');
+        const response = await productAPI.getTopProducts(6);
+        console.log('Top products API response:', response);
         
-        if (data && data.products) {
-          setTopProducts(data.products);
-          return;
+        if (response && response.data) {
+          const data = response.data;
+          if (data.products && data.products.length > 0) {
+            console.log('Successfully loaded products from productAPI:', data.products.length);
+            setTopProducts(data.products);
+            setLoading(false);
+            return;
+          } else if (Array.isArray(data) && data.length > 0) {
+            console.log('Successfully loaded products array from productAPI:', data.length);
+            setTopProducts(data);
+            setLoading(false);
+            return;
+          }
         }
       } catch (serviceError) {
-        console.warn('Failed to fetch using productAPI service, trying direct fetch:', serviceError);
+        console.warn('Failed to fetch using productAPI service:', serviceError);
       }
       
-      // Proper environment detection and URL construction
-      const apiBaseUrl = process.env.REACT_APP_API_URL || 
+      // ATTEMPT 2: Direct API call with environment-aware URL
+      try {
+        attempts.push('direct fetch with environment URL');
+        console.log('Attempt 2: Using direct fetch with environment URL...');
+        
+        // Proper environment detection and URL construction
+        let apiBaseUrl = process.env.REACT_APP_API_URL || 
                         ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
                          ? 'http://localhost:5000/api' 
                          : 'https://manish-steel-api.onrender.com/api');
-      
-      console.log('Using API base URL for top products:', apiBaseUrl);
-      const response = await fetch(`${apiBaseUrl}/products/featured?limit=6`);
-      
-      if (!response.ok) {
-        throw new Error(`API response error: ${response.status}`);
+        
+        // Use the sanitizeApiUrl utility to ensure proper formatting
+        apiBaseUrl = sanitizeApiUrl(apiBaseUrl);
+        
+        console.log('Using API base URL for top products:', apiBaseUrl);
+        const featuredUrl = `${apiBaseUrl}/products/featured?limit=6`;
+        console.log('Requesting from URL:', featuredUrl);
+        
+        const response = await fetch(featuredUrl);
+        
+        if (!response.ok) {
+          console.warn(`API response not OK: ${response.status}`);
+          throw new Error(`API response error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Featured products API direct response:', data);
+        
+        if (data.products && data.products.length > 0) {
+          console.log('Successfully loaded featured products:', data.products.length);
+          setTopProducts(data.products);
+          setLoading(false);
+          return;
+        } else if (Array.isArray(data) && data.length > 0) {
+          console.log('Successfully loaded featured products array:', data.length);
+          setTopProducts(data);
+          setLoading(false);
+          return;
+        } else {
+          console.warn('No products in API response:', data);
+        }
+      } catch (directError) {
+        console.warn('Direct fetch failed:', directError);
       }
       
-      const data = await response.json();
-      
-      if (data.success && data.products) {
-        setTopProducts(data.products);
-      } else if (data.products) {
-        // Some APIs just return the products array directly
-        setTopProducts(data.products);
-      } else {
-        console.warn('No products in API response:', data);
-        setError('No featured products found');
-        // Use fallback data in production
-        if (process.env.NODE_ENV === 'production') {
-          setTopProducts(getFallbackProducts());
-          setError(null);
+      // ATTEMPT 3: Hardcoded URL as last resort
+      try {
+        attempts.push('hardcoded URL');
+        console.log('Attempt 3: Using hardcoded URL as last resort...');
+        
+        const hardcodedUrl = 'https://manish-steel-api.onrender.com/api/products/featured?limit=6';
+        console.log('Requesting from hardcoded URL:', hardcodedUrl);
+        
+        const response = await fetch(hardcodedUrl);
+        const data = await response.json();
+        console.log('Hardcoded URL response:', data);
+        
+        if (data.products && data.products.length > 0) {
+          console.log('Successfully loaded products from hardcoded URL:', data.products.length);
+          setTopProducts(data.products);
+          setLoading(false);
+          return;
         }
+      } catch (hardcodedError) {
+        console.warn('Hardcoded URL failed:', hardcodedError);
+      }
+      
+      // If we get here, no methods worked - use fallback data
+      console.warn('All fetch attempts failed:', attempts.join(', '));
+      setError('Could not load featured products');
+      
+      // Use fallback data in any environment since all attempts failed
+      setTopProducts(getFallbackProducts());
+      if (process.env.NODE_ENV === 'production') {
+        setError(null); // Hide error in production
       }
     } catch (error) {
       mobileDebugger.mobileError('Error fetching top products:', error);

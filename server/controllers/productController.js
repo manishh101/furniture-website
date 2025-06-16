@@ -433,3 +433,65 @@ exports.updateSalesCount = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get all images for a specific product
+ * This endpoint is optimized for gallery display
+ * @route GET /api/products/:id/images
+ */
+exports.getProductImages = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id)
+      .populate('categoryId', 'name')
+      .populate('subcategoryId', 'name');
+
+    if (!product) {
+      return res.status(404).json({ msg: 'Product not found' });
+    }
+
+    // Collect all images from the product
+    const imageCollection = [];
+    
+    // Start with main image as it's the primary one
+    if (product.image) {
+      imageCollection.push({
+        url: product.image,
+        isPrimary: true,
+        type: 'main'
+      });
+    }
+
+    // Add all additional images from the images array
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      product.images.forEach((img, index) => {
+        if (img && !imageCollection.some(existingImg => existingImg.url === img)) {
+          imageCollection.push({
+            url: img,
+            isPrimary: false,
+            index: index,
+            type: 'additional'
+          });
+        }
+      });
+    }
+
+    res.json({
+      productId: product._id,
+      productName: product.name,
+      category: product.category || (product.categoryId ? product.categoryId.name : null),
+      totalImages: imageCollection.length,
+      images: imageCollection
+    });
+    
+  } catch (err) {
+    console.error('Get product images error:', err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Product not found' });
+    }
+    res.status(500).json({ 
+      success: false, 
+      msg: 'Server Error',
+      error: err.message 
+    });
+  }
+};

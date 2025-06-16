@@ -1,5 +1,6 @@
 // Gallery API for backend integration
 import api from './api';
+import CloudinaryImageService from './cloudinaryImageService';
 
 export const galleryAPI = {
   // Get all products
@@ -78,7 +79,36 @@ export const galleryAPI = {
       
       console.log(`🖼️ Fetching gallery images for product ID: ${productId}`);
       
-      // First try the detailed product endpoint
+      // First try the dedicated images endpoint
+      try {
+        const imagesResponse = await api.get(`/products/${productId}/images`);
+        if (imagesResponse && imagesResponse.data && imagesResponse.data.images) {
+          console.log(`📸 Found ${imagesResponse.data.images.length} images from dedicated endpoint`);
+          
+          // Process the images through CloudinaryImageService
+          const imageUrls = imagesResponse.data.images.map(img => img.url || img);
+          const processedImages = CloudinaryImageService.validateGalleryImages(imageUrls);
+          
+          return {
+            id: productId,
+            name: imagesResponse.data.productName || 'Product Gallery',
+            category: imagesResponse.data.category,
+            images: processedImages,
+            galleryData: processedImages.map((url, index) => ({
+              id: `${productId}_${index}`,
+              url: url,
+              index: index,
+              alt: `${imagesResponse.data.productName || 'Product'} - Image ${index + 1}`
+            })),
+            totalImages: processedImages.length,
+            isGalleryReady: processedImages.length > 0
+          };
+        }
+      } catch (endpointError) {
+        console.log('⚠️ Dedicated images endpoint not available, falling back to product data');
+      }
+      
+      // Fallback to the detailed product endpoint
       const response = await api.get(`/products/${productId}`);
       console.log(`📦 API response for product ${productId}:`, response);
       
@@ -94,28 +124,7 @@ export const galleryAPI = {
       
       // Helper function to validate and normalize image URLs
       const validateImageUrl = (img) => {
-        if (!img) return null;
-        
-        // Handle different image object formats
-        let url = '';
-        if (typeof img === 'string') {
-          url = img;
-        } else if (typeof img === 'object') {
-          url = img.url || img.src || img.path || img.image || img.imageUrl || '';
-        }
-        
-        // Validate URL format
-        if (!url || url.trim() === '') return null;
-        
-        // Ensure proper URL format for display
-        const cleanUrl = url.trim();
-        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-          return cleanUrl;
-        } else if (cleanUrl.startsWith('/')) {
-          return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${cleanUrl}`;
-        } else {
-          return `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${cleanUrl}`;
-        }
+        return CloudinaryImageService.normalizeImageUrl(img);
       };
       
       // Helper function to process image arrays with validation
@@ -207,8 +216,11 @@ export const galleryAPI = {
         console.log('⚠️ Could not fetch from additional endpoints');
       }
       
-      // Convert to array and prepare gallery data
-      const finalImages = Array.from(galleryImages);
+      // Convert to array and prepare gallery data 
+      // Use CloudinaryImageService to validate and process all images for consistency
+      const rawImages = Array.from(galleryImages);
+      const finalImages = CloudinaryImageService.validateGalleryImages(rawImages);
+      
       console.log(`🎉 Gallery ready: ${finalImages.length} unique images found for product ${productId}`);
       
       // Create optimized gallery data structure

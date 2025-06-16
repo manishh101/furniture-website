@@ -3,15 +3,25 @@ import authService from './authService';
 import portDiscovery from './portDiscovery';
 import { getCategories as getLocalCategories } from '../utils/categoryData';
 import { defaultProducts } from '../utils/productData';
+import { sanitizeApiUrl } from '../utils/apiUrlHelper';
 
 // Create an initial Axios instance with the correct baseURL based on environment
 const getInitialBaseUrl = () => {
+  let baseUrl;
+  
   // In production, use the environment variable
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://manish-steel-api.onrender.com/api';
+    baseUrl = process.env.REACT_APP_API_URL || 'https://manish-steel-api.onrender.com/api';
+  } else {
+    // In development, start with localhost
+    baseUrl = 'http://localhost:5000/api';
   }
-  // In development, start with localhost
-  return 'http://localhost:5000/api';
+  
+  // Use the sanitizeApiUrl utility to ensure proper formatting
+  baseUrl = sanitizeApiUrl(baseUrl);
+  
+  console.log('API Client using base URL:', baseUrl);
+  return baseUrl;
 };
 
 const api = axios.create({
@@ -250,34 +260,20 @@ export const productAPI = {
   // Get featured products
   getFeatured: async (limit = 6) => {
     try {
-      if (!isApiConnected) {
-        throw new Error('API not connected');
-      }
       return await api.get('/products/featured', { params: { limit } });
     } catch (error) {
-      console.warn('Using fallback data for featured products:', error.message);
-      // Return some featured products from default data
-      const featured = defaultProducts.slice(0, limit).map(p => ({ ...p, featured: true }));
-      return { data: { success: true, products: featured, count: featured.length } };
+      console.warn('Error fetching featured products:', error.message);
+      throw error; // Let the component handle the error
     }
   },
 
   // Get best selling products
   getBestSelling: async (limit = 6) => {
     try {
-      if (!isApiConnected) {
-        throw new Error('API not connected');
-      }
       return await api.get('/products/best-selling', { params: { limit } });
     } catch (error) {
-      console.warn('Using fallback data for best selling products:', error.message);
-      // Return some best selling products from default data
-      const bestSelling = defaultProducts.slice(0, limit).map((p, index) => ({ 
-        ...p, 
-        salesCount: 300 - (index * 30),
-        rating: 4.5 + (Math.random() * 0.5)
-      }));
-      return { data: { success: true, products: bestSelling, count: bestSelling.length } };
+      console.warn('Error fetching best selling products:', error.message);
+      throw error; // Let the component handle the error
     }
   },
 

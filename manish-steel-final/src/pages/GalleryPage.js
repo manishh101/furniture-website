@@ -8,6 +8,7 @@ import { FaImages, FaEye, FaFilter, FaThLarge, FaList, FaStar, FaHeart, FaAngleU
 import { scrollToTop } from '../utils/scrollUtils';
 import GalleryHero from '../components/GalleryHero';
 import ImageService from '../services/imageService';
+import CloudinaryImageService from '../services/cloudinaryImageService';
 import OptimizedImage from '../components/common/OptimizedImage';
 import { testimonials } from '../data/testimonials';
 import GalleryCard from '../components/GalleryCard';
@@ -430,7 +431,30 @@ const GalleryPage = () => {
       // Start with main product image
       let galleryImages = [];
       if (product.src) {
-        galleryImages.push(product.src);
+        // Ensure the image URL is properly formatted for Cloudinary
+        const processedImageUrl = CloudinaryImageService.isCloudinaryUrl(product.src) 
+          ? CloudinaryImageService.optimizeCloudinaryUrl(product.src, { quality: "auto:best", fetch_format: "auto" })
+          : product.src;
+        galleryImages.push(processedImageUrl);
+      }
+      
+      // Check for data.images if available
+      if (product.data && Array.isArray(product.data.images) && product.data.images.length > 0) {
+        console.log(`📸 Found ${product.data.images.length} images in product data object`);
+        
+        // Process all images from product data
+        product.data.images.forEach(img => {
+          if (!img) return;
+          
+          const processedUrl = CloudinaryImageService.isCloudinaryUrl(img) 
+            ? CloudinaryImageService.optimizeCloudinaryUrl(img, { quality: "auto:best", fetch_format: "auto" })
+            : img;
+            
+          // Don't add duplicates
+          if (!galleryImages.includes(processedUrl)) {
+            galleryImages.push(processedUrl);
+          }
+        });
       }
       
       // If we have a product ID, fetch additional images
@@ -442,8 +466,12 @@ const GalleryPage = () => {
           if (productDetail && productDetail.isGalleryReady && productDetail.galleryData) {
             console.log(`✅ Gallery ready with ${productDetail.totalImages} images`);
             
-            // Use the optimized gallery data
-            setGalleryModalImages(productDetail.galleryData.map(img => img.url));
+            // Process all images to ensure they're properly formatted for Cloudinary
+            const processedImages = CloudinaryImageService.processGalleryImages(
+              productDetail.galleryData.map(img => img.url)
+            );
+            
+            setGalleryModalImages(processedImages);
             setGalleryModalTitle(productName);
             setGalleryModalInitialIndex(0);
             setIsGalleryModalOpen(true);

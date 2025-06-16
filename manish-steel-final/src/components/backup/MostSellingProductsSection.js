@@ -6,6 +6,7 @@ import { PlaceholderImage } from '../utils/placeholders';
 import OptimizedImage from './common/OptimizedImage';
 import ImageService from '../services/imageService';
 import mobileDebugger from '../utils/mobileDebugger';
+import { sanitizeApiUrl } from '../utils/apiUrlHelper';
 
 // Error boundary to prevent entire component from failing
 class ErrorBoundary extends React.Component {
@@ -107,10 +108,13 @@ const MostSellingProductsSection = () => {
       }
       
       // Proper environment detection and URL construction
-      const apiBaseUrl = process.env.REACT_APP_API_URL || 
-                        ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-                         ? 'http://localhost:5000/api' 
-                         : 'https://manish-steel-api.onrender.com/api');
+      let apiBaseUrl = process.env.REACT_APP_API_URL || 
+                      ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+                       ? 'http://localhost:5000/api' 
+                       : 'https://manish-steel-api.onrender.com/api');
+      
+      // Use the sanitizeApiUrl utility to ensure proper formatting
+      apiBaseUrl = sanitizeApiUrl(apiBaseUrl);
       
       console.log('Using API base URL for best-selling products:', apiBaseUrl);
       

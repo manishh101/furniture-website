@@ -7,6 +7,7 @@
  */
 
 import axios from 'axios';
+import { sanitizeApiUrl } from '../utils/apiUrlHelper';
 
 // Common ports to try - start with the most likely port first
 const COMMON_PORTS = [5000, 3001, 3000];
@@ -28,8 +29,9 @@ const discoverPort = async () => {
   if (process.env.NODE_ENV === 'production') {
     // Added explicit log for debugging
     const apiUrl = process.env.REACT_APP_API_URL || 'https://manish-steel-api.onrender.com/api';
-    console.log('Production environment detected, using API URL:', apiUrl);
-    return apiUrl;
+    const sanitizedUrl = sanitizeApiUrl(apiUrl);
+    console.log('Production environment detected, using API URL:', sanitizedUrl);
+    return sanitizedUrl;
   }
   
   // Check if we have a cached API URL
@@ -42,16 +44,22 @@ const discoverPort = async () => {
   try {
     const defaultUrl = 'http://localhost:5000/api';
     try {
-      await axios.get(`${defaultUrl}/health`, { timeout: 1000 });
+      // Ensure URL is properly formatted
+      const healthCheckUrl = sanitizeApiUrl(`${defaultUrl.replace('/api', '')}/health`);
+      console.log('Checking default health endpoint:', healthCheckUrl);
+      await axios.get(healthCheckUrl, { timeout: 1000 });
       cacheApiUrl(defaultUrl);
       return defaultUrl;
     } catch (err) {
       // Try regular /health endpoint
-      await axios.get(`http://localhost:5000/health`, { timeout: 1000 });
+      const backupHealthUrl = sanitizeApiUrl('http://localhost:5000/health');
+      console.log('Checking backup health endpoint:', backupHealthUrl);
+      await axios.get(backupHealthUrl, { timeout: 1000 });
       cacheApiUrl(defaultUrl);
       return defaultUrl;
     }
   } catch (err) {
+    console.log('Default health checks failed, continuing with port discovery');
     // Continue with port discovery if default port is not working
   }
   
@@ -62,10 +70,10 @@ const discoverPort = async () => {
       
       try {
         try {
-          await axios.get(`${apiBaseUrl}/health`, { timeout: 1000 });
+          await axios.get(sanitizeApiUrl(`${apiBaseUrl}/health`), { timeout: 1000 });
         } catch (innerErr) {
           // If /api/health fails, try just /health
-          await axios.get(`http://${host}:${port}/health`, { timeout: 1000 });
+          await axios.get(sanitizeApiUrl(`http://${host}:${port}/health`), { timeout: 1000 });
         }
         
         cacheApiUrl(apiBaseUrl);

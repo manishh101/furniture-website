@@ -79,7 +79,7 @@ const Footer = () => {
           <div className="md:col-span-1">
             <img src={newLogo} alt="Shree Manish Steel Furniture Industry" className="h-16 mb-4" />
             <p className="text-white/80 mb-4">
-              Providing quality steel furniture solutions for homes and offices across Nepal since 2005.
+              Providing quality steel furniture solutions for homes and offices across Nepal since 2067.
             </p>
             {/* Updated Social Links */}
             <div className="flex flex-wrap gap-4">

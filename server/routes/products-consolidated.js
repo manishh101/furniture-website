@@ -39,6 +39,15 @@ router.get('/best-selling', productController.getBestSellingProducts);
 router.get('/', productController.getAllProducts);
 
 /**
+ * @route   GET api/products/:id/images
+ * @desc    Get all images for a specific product (optimized for gallery)
+ * @access  Public
+ * 
+ * NOTE: This route must be defined BEFORE the /:id route to avoid conflicts
+ */
+router.get('/:id/images', productController.getProductImages);
+
+/**
  * @route   GET api/products/:id
  * @desc    Get product by ID
  * @access  Public

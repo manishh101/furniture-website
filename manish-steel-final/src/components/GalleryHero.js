@@ -4,17 +4,19 @@ import { motion } from 'framer-motion';
 /**
  * Enhanced Hero section for the Gallery page with a m            <button 
               className="px-6 sm:px-8 py-3 sm:py-4 bg-primary text-white transition-colors duration-300 
-                font-medium sm:font-semibold rounded-xl shadow-lg w-40 text-center
+                font-medium sm:font-semibold rounded-xl shadow-lg
                 hover:shadow-2xl focus:ring-4 focus:ring-white/30 focus:outline-none"
               onClick={() => document.querySelector('#gallery-products-section')?.scrollIntoView({ behavior: 'smooth' })}
+              style={{minWidth: '140px', textAlign: 'center'}}
             >
               Browse Products
             </button>
             <button 
               className="px-6 sm:px-8 py-3 sm:py-4 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white 
-                transition-colors duration-300 font-medium sm:font-semibold rounded-xl shadow-lg w-40 text-center
+                transition-colors duration-300 font-medium sm:font-semibold rounded-xl shadow-lg
                 hover:shadow-xl border border-white/20 focus:ring-4 focus:ring-white/30 focus:outline-none"
               onClick={() => window.location.href = '/contact'}
+              style={{minWidth: '140px', textAlign: 'center'}}
             >
               Contact Us
             </button>nal design
